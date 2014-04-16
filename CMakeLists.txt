@@ -104,7 +104,7 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(beginner_tutorials_node src/beginner_tutorials_node.cpp)
-add_executable(fly_from_src src/fly_from_keyboard.cpp)
+add_executable(fly_from_keyboard src/fly_from_keyboard.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -114,6 +114,9 @@ add_executable(fly_from_src src/fly_from_keyboard.cpp)
 # target_link_libraries(beginner_tutorials_node
 #   ${catkin_LIBRARIES}
 # )
+target_link_libraries(fly_from_keyboard
+   ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
