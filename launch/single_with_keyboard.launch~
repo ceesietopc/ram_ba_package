@@ -30,6 +30,6 @@
 		<rosparam param="cov/imu_or">[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 100000.0]</rosparam>
 	</node>
 	<node pkg="rqt_plot" type="rqt_plot" name="plot_battery" args="/ardrone/navdata/batteryPercent" />
-	<node pkg="ram" type="fly_from_keyboard" name="fly_from_keyboard"/>
+	<node pkg="ram" type="fly_from_keyboard" name="fly_from_keyboard" />
 </launch>
 
