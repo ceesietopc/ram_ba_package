@@ -17,15 +17,21 @@ This executable lets you control a connected quadcopter with your keyboard. To r
 5. Open yet another terminal and run this package by "rosrun ram fly_from_keyboard".
 
 The following shortcuts can be used now:
-|Action|Key|
-|-----|-----|
-|Go left|a|
-|Go right|d|
-|Go forward|u|
-|Go backward|s|
-|Go up|k|
-|Go down|m|
-|Take off|o|
-|Land|l|
-|Reset|r|
+
+| Action | Key |
+| ----- | ----- |
+| Go left | a |
+| Go right | d |
+| Go forward | u |
+| Go backward | s |
+| Go up | k |
+| Go down | m |
+| Take off | o |
+| Land | l |
+| Reset | r |
+
+First Header  | Second Header
+------------- | -------------
+Content Cell  | Content Cell
+Content Cell  | Content Cell
 
