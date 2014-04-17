@@ -6,18 +6,16 @@
 * - /ardrone/land
 * - /ardrone/reset
 * - /cmd_vel
+*
 * The chosen topics and messages are in line with the ardrone_autonomy package and it's ardrone_driver executable.
 * TODO:
+*
 * - Look into stabilizing code (using the dirty var). It seems to make the control unintuitive.
 * - Look into using this code for mulitple drones.
 * - Look into the way the loop rate influences the code
 * - Make sure the terminal properly exits: now it stays in raw mode
 */
 
-
-/**
-* Include the necessary headers
-*/
 #include <ros/ros.h> 			// ROS header
 #include <std_msgs/Empty.h> 		// Class to define an empty message
 #include <geometry_msgs/Twist.h>	// Class to define a twist message
@@ -25,21 +23,23 @@
 #include <stdio.h>			// Header for standard I/O operations
 #include <sys/poll.h>			// Header needed for poll subroutines
 
-/**
+/** \name Keyboard Configuration 
 * In the following section the character codes of the keys used on the keyboard are defined.
 * Use "xmodmap -pk" to get a list of codes that can be used. Use the shorthand notation of the small letter.
 */
-#define KEY_FORWARD 0x77 	// W
-#define KEY_LEFT 0x61 		// A
-#define KEY_BACKWARD 0x73 	// S
-#define KEY_RIGHT 0x64 		// D
-#define KEY_UP 0x6B 		// K
-#define KEY_DOWN 0x6D 		// M
-#define KEY_TURNR 0x65 		// E
-#define KEY_TURNL 0x71 		// Q
-#define KEY_RESET 0x72 		// R
-#define KEY_LAUNCH 0x6F 	// O
-#define KEY_LAND 0x6C 		// L	
+/**@{*/
+#define KEY_FORWARD 0x77 	/**< Character key for w */
+#define KEY_LEFT 0x61 		/**< Character key for a */
+#define KEY_BACKWARD 0x73 	/**< Character key for s */
+#define KEY_RIGHT 0x64 		/**< Character key for d */
+#define KEY_UP 0x6B 		/**< Character key for k */
+#define KEY_DOWN 0x6D 		/**< Character key for m */
+#define KEY_TURNR 0x65 		/**< Character key for e */
+#define KEY_TURNL 0x71 		/**< Character key for q */
+#define KEY_RESET 0x72 		/**< Character key for r */
+#define KEY_LAUNCH 0x6F 	/**< Character key for o */
+#define KEY_LAND 0x6C 		/**< Character key for l */	
+/**@}*/
 
 geometry_msgs::Twist twist_msg;	/**< Prepare the twist message to be filled later */
 std_msgs::Empty emp_msg;	/**< Prepare the empty message. We can send this immediately when necessary */
@@ -53,6 +53,10 @@ bool dirty = false; 		/**< Boolean variable used to find out if we have to staba
 int kfd = 0;			/**< Integer referring to terminal window */
 struct termios cooked, raw;	/**< Struct to enable manipulation of the terminal. */
 
+
+/**
+* Main function
+*/
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "fly_from_keyboard");
@@ -68,7 +72,7 @@ int main(int argc, char** argv)
 	pub_land = node.advertise<std_msgs::Empty>("ardrone/land",1); 		// Set pub_land as the publisher to publish an empty message to /ardrone/land
 	pub_reset = node.advertise<std_msgs::Empty>("ardrone/reset",1); 	// Set pub_reset as the publisher to publish an empty message to /ardrone/reset
 	
-	char c; 					/**< Initialize a char c. This variable will hold our keyboard input*/
+	char c; 					// Initialize a char c. This variable will hold our keyboard input
 	tcgetattr(kfd, &cooked);			// Get the attributes of the terminal referenced by kfd and store them in the termios struct cooked. These are the old settings.
 	memcpy(&raw, &cooked, sizeof(struct termios));	// Copy the memory block of the size of termios from the location of cooked to the location of raw. 
 	raw.c_lflag &=~ (ICANON | ECHO);		// Set local modes (canonical: content is available line by line; echo: echo input characters)
@@ -82,9 +86,7 @@ int main(int argc, char** argv)
 	ufd.fd = kfd;			// The file descriptor we are referring to is the terminal input
 	ufd.events = POLLIN;		// Event we want to track: there is data to read --> POLLIN
 
-	/**
-	* Keyboard loop.
-	*/
+	// Keyboard loop.
 	for(;;)
 	{
 		int num;
@@ -179,9 +181,6 @@ int main(int argc, char** argv)
 			
 		}
 
-		/**
-		* Now the directions are set, incorporate the factors and publish the message.
-		*/
 		twist_msg.linear.x = speed_x*speed_factor;
 		twist_msg.linear.y = speed_y*speed_factor;
 		twist_msg.linear.z = speed_z*speed_factor;
@@ -190,9 +189,7 @@ int main(int argc, char** argv)
 		ros::spinOnce(); 	// Not necessary, has to do with callbacks on listeners. Good habit.
 		loop_rate.sleep();	// Wait the rest of the loop
 	}
-/**
-* If you end up here, you exited the loop.
-*/
+
 puts("Stopped reading from keyboard.");
 tcsetattr(kfd, TCSAFLUSH, &cooked);	// Use old settings of the terminal.
 return(0);
