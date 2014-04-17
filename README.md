@@ -23,7 +23,7 @@ The following shortcuts can be used now:
 | ----- | ----- |
 | Go left | a |
 | Go right | d |
-| Go forward | u |
+| Go forward | w |
 | Go backward | s |
 | Go up | k |
 | Go down | m |
