@@ -10,11 +10,12 @@ Current executables:
 
 ## fly_from_keyboard
 This executable lets you control a connected quadcopter with your keyboard. To run this, perform the following steps. Assumed is that the the latest version of the source is in a source folder of your Catkin workspace.
+
 1. Run catkin_make from your Catkin workspace root.
-2. Source the freshly built packages using "source devel/setup.bash".
-3. Run "roscore".
-4. Open a new terminal and run your ardrone_driver. Recommended is to do this by running the launch file supplied using "roslaunch".
-5. Open yet another terminal and run this package by "rosrun ram fly_from_keyboard".
+2. Run "roscore".
+3. Open a new terminal and run your ardrone_driver. Recommended is to do this by running the launch file supplied using "roslaunch". It may be necessary to run "source devel/setup.bash" for this operation, if you built ardrone_driver from source.
+4. Open yet another terminal and source the freshly built packages using "source devel/setup.bash".
+5. Run this package by "rosrun ram fly_from_keyboard".
 
 The following shortcuts can be used now:
 
