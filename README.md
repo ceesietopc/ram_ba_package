@@ -30,8 +30,3 @@ The following shortcuts can be used now:
 | Land | l |
 | Reset | r |
 
-First Header  | Second Header
-------------- | -------------
-Content Cell  | Content Cell
-Content Cell  | Content Cell
-
