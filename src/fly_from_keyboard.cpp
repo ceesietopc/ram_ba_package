@@ -13,6 +13,8 @@
 #define KEY_RIGHT 0x64 // D
 #define KEY_UP 0x6B // K
 #define KEY_DOWN 0x6D // M
+#define KEY_TURNR 0x65 // E
+#define KEY_TURNL 0x71 // Q
 #define KEY_RESET 0x72 // R
 #define KEY_LAUNCH 0x6F // O
 #define KEY_LAND 0x6C // L
@@ -134,6 +136,14 @@ int main(int argc, char** argv)
 				break;
 			case KEY_RIGHT:
 				speed_y = -1;
+				dirty = true;
+				break;
+			case KEY_TURNR:
+				turn = 1;
+				dirty = true;
+				break;
+			case KEY_TURNL:
+				turn = -1;
 				dirty = true;
 				break;
 			default:
