@@ -1,71 +1,97 @@
-#include <ros/ros.h>
-#include <std_msgs/Empty.h>
-#include <geometry_msgs/Twist.h>
-#include <termios.h> // This and down is for the keyboard input
-#include <stdio.h>
-#include <sys/poll.h>
+/*! \file fly_from_keyboard.cpp 
+* \brief Fly From Keyboard executable for the RAM package
+*
+* This package enables you to control a Parrot AR.Drone from the keyboard of your computer or laptop. It publishes to a number of topics:
+* - /ardrone/takeoff
+* - /ardrone/land
+* - /ardrone/reset
+* - /cmd_vel
+*
+* The chosen topics and messages are in line with the ardrone_autonomy package and it's ardrone_driver executable.
+* TODO:
+*
+* - Look into stabilizing code (using the dirty var). It seems to make the control unintuitive.
+* - Look into using this code for mulitple drones.
+* - Look into the way the loop rate influences the code
+* - Make sure the terminal properly exits: now it stays in raw mode
+*/
+
+#include <ros/ros.h> 			// ROS header
+#include <std_msgs/Empty.h> 		// Class to define an empty message
+#include <geometry_msgs/Twist.h>	// Class to define a twist message
+#include <termios.h>			// Header for Terminal I/O services 
+#include <stdio.h>			// Header for standard I/O operations
+#include <sys/poll.h>			// Header needed for poll subroutines
+
+/** \name Keyboard Configuration 
+* In the following section the character codes of the keys used on the keyboard are defined.
+* Use "xmodmap -pk" to get a list of codes that can be used. Use the shorthand notation of the small letter.
+*/
+/**@{*/
+#define KEY_FORWARD 0x77 	/**< Character key for w */
+#define KEY_LEFT 0x61 		/**< Character key for a */
+#define KEY_BACKWARD 0x73 	/**< Character key for s */
+#define KEY_RIGHT 0x64 		/**< Character key for d */
+#define KEY_UP 0x6B 		/**< Character key for k */
+#define KEY_DOWN 0x6D 		/**< Character key for m */
+#define KEY_TURNR 0x65 		/**< Character key for e */
+#define KEY_TURNL 0x71 		/**< Character key for q */
+#define KEY_RESET 0x72 		/**< Character key for r */
+#define KEY_LAUNCH 0x6F 	/**< Character key for o */
+#define KEY_LAND 0x6C 		/**< Character key for l */	
+/**@}*/
+
+geometry_msgs::Twist twist_msg;	/**< Prepare the twist message to be filled later */
+std_msgs::Empty emp_msg;	/**< Prepare the empty message. We can send this immediately when necessary */
+int speed_x = 0;		/**< Set speed in x direction to zero initially. positive = forward */
+int speed_y = 0;		/**< Set speed in y direction to zero initially. positive = left */
+int speed_z = 0;		/**< Set speed in z direction to zero initially. positive = up */
+int turn = 0;			/**< Set rotation around z to zero initially. positive = clockwise */
+double speed_factor = 0.5;	/**< Include a factor to scale the linear motions in the final twist. Allowed values for twist are between -1 and 1. In this way you can slow down all motions.*/
+double turn_factor = 0.5;	/**< Include a turnfactor to scale the rotations in the final twist. Allowed values for twist are between -1 and 1. */
+bool dirty = false; 		/**< Boolean variable used to find out if we have to stabalize the quadcopter. */
+int kfd = 0;			/**< Integer referring to terminal window */
+struct termios cooked, raw;	/**< Struct to enable manipulation of the terminal. */
 
 
-// 2D!
-#define KEY_FORWARD 0x77 // W
-#define KEY_LEFT 0x61 // A
-#define KEY_BACKWARD 0x73 // S
-#define KEY_RIGHT 0x64 // D
-#define KEY_UP 0x6B // K
-#define KEY_DOWN 0x6D // M
-#define KEY_TURNR 0x65 // E
-#define KEY_TURNL 0x71 // Q
-#define KEY_RESET 0x72 // R
-#define KEY_LAUNCH 0x6F // O
-#define KEY_LAND 0x6C // L
-
-geometry_msgs::Twist twist_msg;
-std_msgs::Empty emp_msg;
-int speed_x = 0;
-int speed_y = 0;
-int speed_z = 0;
-int turn = 0;
-double speed_factor = 0.5;
-double turn_factor = 0.5;
-bool dirty = false; // To make sure to stop the robot after a command is given
-int kfd = 0;
-struct termios cooked, raw;
-
+/**
+* Main function
+*/
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "fly_from_keyboard");
-	ros::NodeHandle node;
-	ros::Rate loop_rate(50); // Check if fast enough / consistent with launch files
-	ros::Publisher pub_twist; // We need to publish some twists
-	ros::Publisher pub_takeoff; // and some empty messages
-	ros::Publisher pub_land; // and some empty messages
-	ros::Publisher pub_reset; // and some empty messages
+	ros::NodeHandle node;		
+	ros::Rate loop_rate(50); 	// Set loop rate
+	ros::Publisher pub_twist; 	// Initialize publisher for twist command
+	ros::Publisher pub_takeoff; 	// Initialize publisher for take-off command
+	ros::Publisher pub_land; 	// Initialize publisher for land command
+	ros::Publisher pub_reset; 	// Initialize publisher for reset command
 
-	pub_twist = node.advertise<geometry_msgs::Twist>("cmd_vel",1); // command velocity
-	pub_takeoff = node.advertise<std_msgs::Empty>("ardrone/takeoff",1); // command velocity
-	pub_land = node.advertise<std_msgs::Empty>("ardrone/land",1); // command velocity
-	pub_reset = node.advertise<std_msgs::Empty>("ardrone/reset",1); // command velocity
+	pub_twist = node.advertise<geometry_msgs::Twist>("cmd_vel",1); 		// Set pub_twist as the publisher to publish a twist to /cmd_vel
+	pub_takeoff = node.advertise<std_msgs::Empty>("ardrone/takeoff",1); 	// Set pub_takeoff as the publisher to publish an empty message to /ardrone/takeoff
+	pub_land = node.advertise<std_msgs::Empty>("ardrone/land",1); 		// Set pub_land as the publisher to publish an empty message to /ardrone/land
+	pub_reset = node.advertise<std_msgs::Empty>("ardrone/reset",1); 	// Set pub_reset as the publisher to publish an empty message to /ardrone/reset
 	
+	char c; 					// Initialize a char c. This variable will hold our keyboard input
+	tcgetattr(kfd, &cooked);			// Get the attributes of the terminal referenced by kfd and store them in the termios struct cooked. These are the old settings.
+	memcpy(&raw, &cooked, sizeof(struct termios));	// Copy the memory block of the size of termios from the location of cooked to the location of raw. 
+	raw.c_lflag &=~ (ICANON | ECHO);		// Set local modes (canonical: content is available line by line; echo: echo input characters)
+	raw.c_cc[VEOL] = 1;				// Set End of Line special character to 1 (?)
+	raw.c_cc[VEOF] = 2;				// Set End of File special character to 2 (?)
+	tcsetattr(kfd, TCSANOW, &raw);			// Set the attributes of the terminal kfd to process every change immediately (AKA: process every key as soon as it get in)
 
-	ROS_INFO("Waiting for keyboard input");
+	puts("Reading from keyboard.");			// Write message to terminal
 	
-	char c;
-	tcgetattr(kfd, &cooked);
-	memcpy(&raw, &cooked, sizeof(struct termios));
-	raw.c_lflag &=~ (ICANON | ECHO);
-	raw.c_cc[VEOL] = 1;
-	raw.c_cc[VEOF] = 2;
-	tcsetattr(kfd, TCSANOW, &raw);
+	struct pollfd ufd;		// Create poll struct (poll = waiting for some event on a file descripter)			
+	ufd.fd = kfd;			// The file descriptor we are referring to is the terminal input
+	ufd.events = POLLIN;		// Event we want to track: there is data to read --> POLLIN
 
-	puts("Reading from keyboard.");
-	
-	struct pollfd ufd;
-	ufd.fd = kfd;
-	ufd.events = POLLIN;
-
+	// Keyboard loop.
 	for(;;)
 	{
 		int num;
+
+		// Poll &ufd for 1 item with a timeout of 250 ms. If this returns < 0, there is an error. If positive, there are to be read items.
 		if ((num = poll(&ufd, 1, 250)) < 0)
 		{
 			perror("poll():");
@@ -73,6 +99,7 @@ int main(int argc, char** argv)
 		}
 		else if(num > 0)
 		{
+			// There is an event, so read the terminal input and place it in c. Under 0 should be impossible, so throw an error.
 			if(read(kfd, &c, 1) < 0)
 			{
 				perror("read():");
@@ -81,9 +108,9 @@ int main(int argc, char** argv)
 		}
 		else
 		{
+			// If the boolean variable dirty is true, there has been sent a command. To stop the robot from moving in that direction, we have to "stabalize": everything 0.
 			if(dirty == true)
 			{
-				// Stop robot and flush vars
 				speed_x = 0;
 				speed_y = 0;
 				speed_z = 0;
@@ -95,59 +122,59 @@ int main(int argc, char** argv)
 				pub_twist.publish(twist_msg);
 				dirty = false;
 			}
-
-			continue;
+			continue; // Skip over rest of iteration. Might not be necessary.
 		}
-		ROS_INFO("%c",c);
+		
+		// c contains a single character now, determining the action.
 		switch(c)
 		{
 
 			case KEY_LAUNCH:
-				pub_takeoff.publish(emp_msg);
+				pub_takeoff.publish(emp_msg);		// Publish an empty message to take off
 				dirty = true;
 				break;
 			case KEY_RESET:
-				pub_reset.publish(emp_msg);
+				pub_reset.publish(emp_msg);		// Publish an empty message to reset
 				dirty = true;
 				break;
 			case KEY_LAND:
-				pub_land.publish(emp_msg);
+				pub_land.publish(emp_msg);		// Publish an empty message to land
 				dirty = true;
 				break;
 			case KEY_FORWARD:
-				speed_x = 1;
+				speed_x = 1;				// Set x forward
 				dirty = true;
 				break;
 			case KEY_BACKWARD:
-				speed_x = -1;
+				speed_x = -1;				// Set x backward
 				dirty = true;
 				break;
 			case KEY_UP:
-				speed_z = 1;
+				speed_z = 1;				// Set z up
 				dirty = true;
 				break;
 			case KEY_DOWN:
-				speed_z = -1;
+				speed_z = -1;				// Set z down
 				dirty = true;
 				break;
 			case KEY_LEFT:
-				speed_y = 1;
+				speed_y = 1;				// Set y left
 				dirty = true;
 				break;
 			case KEY_RIGHT:
-				speed_y = -1;
+				speed_y = -1;				// Set y right
 				dirty = true;
 				break;
 			case KEY_TURNR:
-				turn = 1;
+				turn = 1;				// Set rotation clockwise
 				dirty = true;
 				break;
 			case KEY_TURNL:
-				turn = -1;
+				turn = -1;				// Set rotation counter clockwise
 				dirty = true;
 				break;
 			default:
-				speed_x = 0;
+				speed_x = 0;				// Other key? Strange, but why not stabalize?
 				speed_y = 0;
 				speed_z = 0;
 				turn = 0;
@@ -159,10 +186,11 @@ int main(int argc, char** argv)
 		twist_msg.linear.z = speed_z*speed_factor;
 		twist_msg.angular.z = turn*turn_factor;
 		pub_twist.publish(twist_msg);
-		ros::spinOnce(); // ??
-		loop_rate.sleep();
+		ros::spinOnce(); 	// Not necessary, has to do with callbacks on listeners. Good habit.
+		loop_rate.sleep();	// Wait the rest of the loop
 	}
-ROS_ERROR("ROS:ok() failed - Node Closing");
-tcsetattr(kfd, TCSAFLUSH, &cooked);
+
+puts("Stopped reading from keyboard.");
+tcsetattr(kfd, TCSAFLUSH, &cooked);	// Use old settings of the terminal.
 return(0);
 } // main
