@@ -22,6 +22,7 @@
 #include <termios.h>			// Header for Terminal I/O services 
 #include <stdio.h>			// Header for standard I/O operations
 #include <sys/poll.h>			// Header needed for poll subroutines
+#include <unistd.h>			// Header needed for sleep
 
 /** \name Keyboard Configuration 
 * In the following section the character codes of the keys used on the keyboard are defined.
@@ -38,7 +39,8 @@
 #define KEY_TURNL 0x71 		/**< Character key for q */
 #define KEY_RESET 0x72 		/**< Character key for r */
 #define KEY_LAUNCH 0x6F 	/**< Character key for o */
-#define KEY_LAND 0x6C 		/**< Character key for l */	
+#define KEY_LAND 0x6C 		/**< Character key for l */
+#define KEY_EXIT 0x58		/**< Character key for X (capital!) */	
 /**@}*/
 
 geometry_msgs::Twist twist_msg;	/**< Prepare the twist message to be filled later */
@@ -50,6 +52,8 @@ int turn = 0;			/**< Set rotation around z to zero initially. positive = clockwi
 double speed_factor = 0.5;	/**< Include a factor to scale the linear motions in the final twist. Allowed values for twist are between -1 and 1. In this way you can slow down all motions.*/
 double turn_factor = 0.5;	/**< Include a turnfactor to scale the rotations in the final twist. Allowed values for twist are between -1 and 1. */
 bool dirty = false; 		/**< Boolean variable used to find out if we have to stabalize the quadcopter. */
+bool hoverwait = false;		/**< Boolean variable counteracting the auto repeat delay keyboard setting */
+bool running = true;		/**< Boolean variable that indicates if we should close control. */
 int kfd = 0;			/**< Integer referring to terminal window */
 struct termios cooked, raw;	/**< Struct to enable manipulation of the terminal. */
 
@@ -61,7 +65,7 @@ int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "fly_from_keyboard");
 	ros::NodeHandle node;		
-	ros::Rate loop_rate(50); 	// Set loop rate
+	ros::Rate loop_rate(20); 	// Set loop rate. 20 should be high enough for keyboard input
 	ros::Publisher pub_twist; 	// Initialize publisher for twist command
 	ros::Publisher pub_takeoff; 	// Initialize publisher for take-off command
 	ros::Publisher pub_land; 	// Initialize publisher for land command
@@ -87,7 +91,7 @@ int main(int argc, char** argv)
 	ufd.events = POLLIN;		// Event we want to track: there is data to read --> POLLIN
 
 	// Keyboard loop.
-	for(;;)
+	while(running)
 	{
 		int num;
 
@@ -108,24 +112,33 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			// If the boolean variable dirty is true, there has been sent a command. To stop the robot from moving in that direction, we have to "stabalize": everything 0.
-			if(dirty == true)
+			// Very nasty piece of code... the problem is that holding a key means, since we are using the terminal, repeating a character. To make text input more user-friendly however, it takes a while before the keyboard starts repeating the character (Auto Key Repeat Delay). So: before stabilizing, wait a period (intel based default to .25s) before sending the stabalize signal. Do reset the variables though, since new input can be received. 
+			if(dirty == true && hoverwait == false)
+			{			
+				hoverwait = true;
+				usleep(250000);
+			}
+			//If the boolean variable dirty is true, there has been sent a command. To stop the robot from moving in that direction, we have to "stabalize": everything 0.
+			if(dirty == true && hoverwait == true)
 			{
-				speed_x = 0;
-				speed_y = 0;
-				speed_z = 0;
-				turn = 0;		
 				twist_msg.linear.x= 0.0;
 				twist_msg.linear.y= 0.0;
 				twist_msg.linear.z= 0.0;
 				twist_msg.angular.z = 0.0;
 				pub_twist.publish(twist_msg);
 				dirty = false;
+				hoverwait = false;
 			}
+
+			// Reset vars at this point to enable 
 			continue; // Skip over rest of iteration. Might not be necessary.
 		}
 		
-		// c contains a single character now, determining the action.
+		speed_x = 0;
+		speed_y = 0;
+		speed_z = 0;	
+		turn = 0;
+		// c contains a single character now, determining the action. Since we only have one character, there is no real support for diagonal motion.
 		switch(c)
 		{
 
@@ -173,6 +186,10 @@ int main(int argc, char** argv)
 				turn = -1;				// Set rotation counter clockwise
 				dirty = true;
 				break;
+			case KEY_EXIT:					// Use with extreme caution
+				pub_land.publish(emp_msg);usleep(100000); 		// If you end up here, you exit the control. For the sake of safety: send a land command first. PLEASE dot not rely on this feature and land manually. You lost control at this point. 
+				running = false;
+				break;
 			default:
 				speed_x = 0;				// Other key? Strange, but why not stabalize?
 				speed_y = 0;
@@ -189,7 +206,6 @@ int main(int argc, char** argv)
 		ros::spinOnce(); 	// Not necessary, has to do with callbacks on listeners. Good habit.
 		loop_rate.sleep();	// Wait the rest of the loop
 	}
-
 puts("Stopped reading from keyboard.");
 tcsetattr(kfd, TCSAFLUSH, &cooked);	// Use old settings of the terminal.
 return(0);
