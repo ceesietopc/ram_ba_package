@@ -105,6 +105,10 @@ include_directories(
 ## Declare a cpp executable
 # add_executable(beginner_tutorials_node src/beginner_tutorials_node.cpp)
 add_executable(fly_from_keyboard src/fly_from_keyboard.cpp)
+add_executable(fly_from_joystick src/fly_from_joystick.cpp)
+add_executable(controller src/controller.cpp)
+add_executable(state_estimation src/state_estimation.cpp)
+add_executable(battery_protector src/battery_protector.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -115,6 +119,22 @@ add_executable(fly_from_keyboard src/fly_from_keyboard.cpp)
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(fly_from_keyboard
+   ${catkin_LIBRARIES}
+)
+
+target_link_libraries(fly_from_joystick
+   ${catkin_LIBRARIES}
+)
+
+target_link_libraries(controller
+   ${catkin_LIBRARIES}
+)
+
+target_link_libraries(state_estimation
+   ${catkin_LIBRARIES}
+)
+
+target_link_libraries(battery_protector
    ${catkin_LIBRARIES}
 )
 
