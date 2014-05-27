@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+	<launch>
+		<node pkg="sound_play" type="soundplay_node.py" name="soundplay_node" />
+		<node pkg="ram" type="battery_protector" name="battery_protector" />
+	</launch>

@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+
+<launch>
+<node name="control" pkg="ram" type="controller" output="screen">
+  	<param name="setpoint_x" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
+  	<param name="setpoint_y" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
+  	<param name="setpoint_z" value="1.2" /> 				<!-- Setpoint in initial frame of quadcopter -->
+  	<param name="setpoint_yaw" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
+  	<param name="gain_p_z" value="0.5" /> 					<!-- Translational P gain for lift -->
+  	<param name="gain_d_z" value="0" /> 					<!-- Translational D gain for lift -->
+  	<param name="gain_p_translational" value="0.19" /> 		<!-- Translational P gain for planar motion 0.25 -->
+  	<param name="gain_d_translational" value="0.28" /> 	<!-- Translational D gain for planar motion 0.29 -->
+  	<param name="gain_p_rotational" value="0.15" /> 		<!-- Rotational P gain -->
+  	<param name="gain_d_rotational" value="0.0" /> 			<!-- Rotational D gain -->
+  	<param name="simulation" value="false" /> 				<!-- True if data is to be read from Gazebo (TODO) -->
+  	<param name="hovermode" value="false" /> 				<!-- Enable hovermode if error in all directions is smaller than this value (TODO) -->
+  	<param name="hover_treshold" value="0.4" /> 			<!-- Hover treshold -->
+  	<param name="K" value="5" /> 							<!-- Integration gain for State Estimation Filter of error derivative -->
+  	<param name="uncertainty_band" value="0.08" />
+    <param name="pose_memory" value="30" />
+    <param name="publish_rate" value="10" />
+    <param name="gain_velocity" value="0.10" />
+    <param name="velocity_damping" value="false" />
+  </node>
+    <node pkg="ram" type="state_estimation" name="state_estimation" output="screen">
+    <param name="K" value="70" /> 							<!-- Integration gain for State Estimation Filter of position derivative -->
+    <param name="uncertainty_band" value="0.01" />
+    <param name="pose_memory" value="25" />
+  </node>
+</launch>
+
+<!--
+
+  // Setpoint is in CMD_VEL frame / BFF:
+  //-linear.x: move backward
+  //+linear.x: move forward
+  //-linear.y: move right
+  //+linear.y: move left
+  //-linear.z: move down
+  //+linear.z: move up
+
+  //-angular.z: turn left
+  //+angular.z: turn right
+
+	-->
