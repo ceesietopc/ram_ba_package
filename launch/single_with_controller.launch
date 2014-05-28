@@ -13,7 +13,7 @@
     <param name="flight_without_shell" value="0" />
     <param name="altitude_max" value="3000" />
     <param name="altitude_min" value="50" />
-    <param name="euler_angle_max" value="0.21" />
+    <param name="euler_angle_max" value="0.52" /> <!-- = max = 30 deg -->
     <param name="control_vz_max" value="700" />
     <param name="control_yaw" value="1.75" />
     <param name="detect_type" value="CAD_TYPE_VISION" /> <!-- value 2 for front camera (enemy color), value 3 - no detection, and value 4 - vertical camera roundel detection values. CAD_TYPE_VISION is 2d horizontal tags (hopefully the colored ones on the drone) -->

@@ -36,8 +36,10 @@ private:
   std::vector <double> errorsx_; // Previous errors in x
   std::vector <double> errorsy_; // Previous errors in y
   std::vector <double> errorsz_; // Previous errors in z
+  std::vector <double> errorsyaw_; // Previous errors in z
   std::vector <double> times_; // Corresponding times
   std::vector <geometry_msgs::Twist>  speeds_; // speeds
+  std::vector <double> yaws_;
 
   /* Filter parameters */
   // FOAW
@@ -211,6 +213,7 @@ public:
     // Set time when message comes in (used for derivative)
     double current_time;
     current_time = ros::Time::now().toSec();
+    times_.push_back(current_time);
 
     // Prepare variables for error filtering
     double ex, ez, ey, eyaw;
@@ -220,13 +223,17 @@ public:
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
-    yaw_ = yaw;
-    
+    //yaw_ = lowPassFilter(yaw, yaw_, dt_, T_) ;
+
+    yaws_.push_back(yaw);
+    yaw_ = avg(yaws_,10);
+    //yaw_ = yaw;
+
     std_msgs::Float32 yaw_msg;
     yaw_msg.data = yaw_;
     yaw_publisher_.publish(yaw_msg);
 
-    // Calculate errors. Positive error -> positive action needed
+    // Calculate errors. Positive error -> negative action needed
     ex = (Setpoint.x - odom.pose.pose.position.x);
     ey = (Setpoint.y - odom.pose.pose.position.y);
     ez = (Setpoint.z - odom.pose.pose.position.z);
@@ -235,7 +242,7 @@ public:
     errorsx_.push_back(ex);
     errorsy_.push_back(ey);
     errorsz_.push_back(ez);
-    times_.push_back(current_time);
+    errorsyaw_.push_back(ey);
 
     // Do some memory management 
     if(times_.size() > error_memory_) 
@@ -243,7 +250,9 @@ public:
       errorsx_.erase(errorsx_.begin());
       errorsy_.erase(errorsy_.begin());
       errorsz_.erase(errorsz_.begin());
+      errorsyaw_.erase(errorsyaw_.begin());
       times_.erase(times_.begin());
+      yaws_.erase(yaws_.begin());
     }
 
     // Store speeds for velocity damping
@@ -259,20 +268,19 @@ public:
     Error.z_translational = ez;
     Error.z_rotational = eyaw;
 
-    ErrorDot.x_translational = fofw(errorsx_, times_, 10);
-    ErrorDot.y_translational = fofw(errorsy_, times_, 10);
-    ErrorDot.z_translational = fofw(errorsz_, times_, 10);
+    ErrorDot.x_translational = fofw(errorsx_, times_, 6);
+    ErrorDot.y_translational = fofw(errorsy_, times_, 6);
+    ErrorDot.z_translational = fofw(errorsz_, times_, 6);
+    ErrorDot.z_rotational = fofw(errorsyaw_, times_, 10);
 
     std_msgs::Float32 errord_msg;
     errord_msg.data = ErrorDot.x_translational;
     errordx_publisher_.publish(errord_msg);
 
-    ROS_INFO("%s", hovermode_ ? "true" : "false");
     if(hovermode_)
     {
       if(std::abs(Error.x_translational) < hover_treshold_ && std::abs(Error.y_translational) < hover_treshold_ && std::abs(Error.z_translational) < hover_treshold_)
       {
-        ROS_INFO("HOVERING!");
         Error.x_translational = 0;
         Error.y_translational = 0;
         Error.z_translational = 0;
@@ -393,7 +401,7 @@ public:
     qz = wz;
     qyaw = wyaw;
 
-    // Sum actions (this is still in the absolute world frame)
+    
     velocity_.linear.x = qx;
     velocity_.linear.y = qy;
     velocity_.linear.z = qz;
@@ -424,7 +432,7 @@ public:
   // Filter functions
   double lowPassFilter(double x, double y0, double dt, double T) // Extremely simple filter 
   {
-     double res = y0 + (x - y0) * (dt_/(dt_+T_));
+     double res = y0 + (x - y0) * (dt/(dt+T));
      return res;
   }
 
@@ -527,6 +535,29 @@ public:
     {
       return (memory[n-1] - memory[0])/(times[n-1]-times[0]);
     }
+  }
+
+  double avg(std::vector<double> memory, int samplesBack)
+  {
+    if(memory.size() > samplesBack){
+      double s;
+      s = 0;
+      for(int n = 0; n< samplesBack; n++)
+      {
+
+          s = s + memory[memory.size()-n-1];
+        
+          
+
+      }
+
+      return s/samplesBack;
+    }
+    else 
+    {
+      return memory.back();
+    }
+
   }
 };
 
