@@ -4,17 +4,17 @@
 <node name="control" pkg="ram" type="controller" output="screen">
   	<param name="setpoint_x" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
   	<param name="setpoint_y" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
-  	<param name="setpoint_z" value="1.4" /> 				<!-- Setpoint in initial frame of quadcopter -->
+  	<param name="setpoint_z" value="1" /> 				<!-- Setpoint in initial frame of quadcopter -->
   	<param name="setpoint_yaw" value="0" /> 				<!-- Setpoint in initial frame of quadcopter -->
   	<param name="gain_p_z" value="0.5" /> 					<!-- Translational P gain for lift -->
   	<param name="gain_d_z" value="1" /> 					<!-- Translational D gain for lift -->
   	<param name="gain_p_translational" value="0.09" /> 		<!-- Translational P gain for planar motion 0.25 -->
-  	<param name="gain_d_translational" value="0.16" /> 	<!-- Translational D gain for planar motion 0.29 -->
+  	<param name="gain_d_translational" value="0.11" /> 	<!-- Translational D gain for planar motion 0.29 -->
   	<param name="gain_p_rotational" value="1" /> 		<!-- Rotational P gain -->
   	<param name="gain_d_rotational" value="0.2" /> 			<!-- Rotational D gain -->
   	<param name="simulation" value="false" /> 				<!-- True if data is to be read from Gazebo (TODO) -->
   	<param name="hovermode" value="false" /> 				<!-- Enable hovermode if error in all directions is smaller than this value (TODO) -->
-  	<param name="hover_treshold" value="0.4" /> 			<!-- Hover treshold -->
+  	<param name="hover_treshold" value="0.1" /> 			<!-- Hover treshold -->
   	<param name="K" value="5" /> 							<!-- Integration gain for State Estimation Filter of error derivative -->
   	<param name="uncertainty_band" value="0.08" />
     <param name="pose_memory" value="30" />

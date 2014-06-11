@@ -191,6 +191,16 @@ public:
     velocity_publisher_.publish(velocity_);
   }
 
+  /*void dynConfCb(controller::ParamsConfig &config, uint32_t level)
+  {
+      Gains.d_translational = config.d_translational;
+      Gains.d_rotational = config.d_rotational;
+      Gains.p_translational = config.p_translational;
+      Gains.p_rotational = config.p_rotational;
+      Gains.p_z = config.p_z;
+      Gains.d_z = config.d_z;
+  }*/
+
   void setpointCallback(const geometry_msgs::Pose setpoint)
   {
     // Coordinate frame: absolute world frame.
@@ -290,6 +300,7 @@ public:
         ErrorDot.y_translational = 0;
         ErrorDot.z_translational = 0;
         ErrorDot.z_rotational = 0;
+        ROS_INFO("HOVERING");
       }
     }
 
@@ -564,9 +575,13 @@ public:
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "controller");
-  ROS_INFO("Before 1 loop");
   Control control;
-  ROS_INFO("Before 2 loop");
+/*
+  dynamic_reconfigure::Server<controller::ParamsConfig> srv;
+  dynamic_reconfigure::Server<controller>::CallbackType f;
+  f = boost::bind(&control::dynConfCb, &control, _1, _2);
+  srv.setCallback(f);*/
+
   ros::spin();
   return 0;
 }

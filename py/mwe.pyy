@@ -1,0 +1,52 @@
+from gi.repository import Gtk
+import threading
+import time
+import subprocess
+
+controllerProcesses = []
+
+class controllerThread(threading.Thread):
+    def __init__(self, ssid, onExit, popenArgs):
+        self.stdout = None
+        self.stderr = None
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.ssid = ssid
+        self.onExit = onExit
+        self.popenArgs = popenArgs
+
+    def run(self):
+        p = subprocess.Popen(self.popenArgs,
+                             shell=False)
+        p.wait()
+        self.onExit(self.ssid)
+
+def quitCallback(widget, event):
+    global controllerProcesses
+    if len(controllerProcesses) > 0:
+        warning(window, "Controllers active.","There are active controller processes. Please close them first.")
+        #return True
+    Gtk.main_quit(widget, event)
+
+def cb(ssid):
+    pass
+
+def openScreen(button):
+    thread = controllerThread("ardrone",cb,["rosrun", "ram", "controller.py", "ram", "192.168.1.10"])
+    thread.start()
+
+if __name__ == "__main__":
+    gladefile = "interface.glade"
+    builder = Gtk.Builder()
+    builder.add_from_file(gladefile)
+
+    handlers = {
+        "onDeleteWindow": quitCallback,
+        "btnImport": openScreen
+    }
+    builder.connect_signals(handlers)
+
+    print "Runing!"
+    window = builder.get_object("window1")
+    window.show_all()
+    Gtk.main()
