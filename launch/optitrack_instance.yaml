@@ -3,7 +3,3 @@ rigid_bodies:
         pose: John/unfiltered_pose
     '2':
         pose: James/unfiltered_pose
-    '3':
-        pose: massConnector1/unfiltered_pose
-    '4':
-        pose: massConnector2/unfiltered_pose

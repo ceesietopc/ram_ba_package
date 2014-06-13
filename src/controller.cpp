@@ -9,6 +9,7 @@
 #include <tf/transform_datatypes.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
+#include <ram/nonlinearity.h>
 #include <cmath>
 
 class Control
@@ -19,6 +20,12 @@ private:
   ros::Subscriber setpoint_subscriber_;
   ros::Subscriber odom_subscriber_;
   ros::Publisher velocity_publisher_;
+
+  /* Non linear part */
+  ros::Subscriber nonlin_subscriber_;
+  float nonlinx;
+  float nonliny;
+  float nonlinz;
 
 
   /* ADDITIONAL PUBLISHER FOR GRAPHING PURPOSES */
@@ -123,6 +130,12 @@ public:
     // Velocity publisher
     velocity_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("cmd_vel_controller", 1);
 
+    /* Non linear part */
+    nonlin_subscriber_ = node_handle_.subscribe("nonlinearity", 1, &Control::nonlinCallback, this);
+    nonlinx = 0;
+    nonliny = 0;
+    nonlinz = 0;
+
     /* ADDITIONAL PUBLISHER FOR GRAPHING PURPOSES */
     d_publisher_ = node_handle_.advertise<std_msgs::Float32>("control_d",1);
     p_publisher_ = node_handle_.advertise<std_msgs::Float32>("control_p",1);
@@ -200,6 +213,13 @@ public:
       Gains.p_z = config.p_z;
       Gains.d_z = config.d_z;
   }*/
+
+  void nonlinCallback(const ram::nonlinearity msg)
+  {
+      nonlinx = msg.x;
+      nonliny = msg.y;
+      nonlinz = msg.z;
+  }
 
   void setpointCallback(const geometry_msgs::Pose setpoint)
   {
@@ -352,11 +372,46 @@ public:
     errorx_msg.data = Error.x_translational;
     errorx_publisher_.publish(errorx_msg);
 
+    /* Start off with nonlinear coeff on P gain
+    If the error is positive, a positive nonlin* will result in additional gain.
+    */
+    float addgainx, addgainy, addgainz;
+    addgainx = 0;
+    addgainy = 0;
+    addgainz = 0;
+
+    if (Error.x_translational > 0)
+    {
+      addgainx = nonlinx;
+    }
+    else
+    {
+      addgainx = -nonlinx;
+    }
+
+    if (Error.y_translational > 0)
+    {
+      addgainy = nonliny;
+    }
+    else
+    {
+      addgainy = -nonliny;
+    }
+
+    if (Error.z_translational > 0)
+    {
+      addgainz = nonlinz;
+    }
+    else
+    {
+      addgainz = -nonlinz;
+    }
+
     // P - action
     double px, py, pz, pyaw;
-    px = Error.x_translational * Gains.p_translational;
-    py = Error.y_translational * Gains.p_translational;
-    pz = Error.z_translational * Gains.p_z;
+    px = Error.x_translational * (Gains.p_translational*(1+addgainx));
+    py = Error.y_translational * (Gains.p_translational*(1+addgainy));
+    pz = Error.z_translational * (Gains.p_z*(1+addgainz));
     pyaw = Error.z_rotational * Gains.p_rotational;
 
     std_msgs::Float32 p_action;

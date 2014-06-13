@@ -10,6 +10,7 @@ import std_msgs.msg
 import geometry_msgs.msg
 import tf.transformations
 import rospkg
+from ram.msg import nonlinearity
 
 import os
 import xmlrpclib
@@ -24,6 +25,7 @@ class RosConnector:
         self.pubReset = rospy.Publisher("/"+prefix+"/ardrone/reset", std_msgs.msg.Empty, queue_size=1)
         self.pubSetpoint = rospy.Publisher("/"+prefix+"/setpoint", geometry_msgs.msg.Pose, queue_size=1)
         self.pubCmd = rospy.Publisher("/"+prefix+"/cmd_vel", geometry_msgs.msg.Twist)
+        self.pubNonLinear = rospy.Publisher("/"+prefix+"/nonlinearity", nonlinearity)
 
         self.subJoystick = rospy.Subscriber("/cmd_vel_joy", geometry_msgs.msg.Twist, self.joyCB)
         self.subController = rospy.Subscriber("/"+prefix+"/cmd_vel_controller", geometry_msgs.msg.Twist, self.controllerCB)
@@ -40,8 +42,11 @@ class RosConnector:
 
     def controllerCB(self, msg):
         global publishJoystick
-        if not publishJoystick:
+        global publishZero
+        if not publishJoystick and not publishZero:
             self.pubCmd.publish(msg)
+        if publishZero:
+            self.pubCmd.publish(geometry_msgs.msg.Twist())
     
     def clean(self):
         print "Cleaning!"
@@ -85,6 +90,12 @@ class RosConnector:
     def getMassConnectorLocation(self, prefix):
         return self.massConnectorPositionDict[prefix]
 
+    def setNonLinear(self, x, y, z):
+        msg = nonlinearity()
+        msg.x = x
+        msg.y = y
+        msg.z = z
+        self.pubNonLinear.publish(msg)
 
 def btnClose(widget, event):
     ros.clean()
@@ -117,6 +128,10 @@ def boxSetpoint(box):
     if publishSetpoint == True:
         setSetpoint()
 
+def boxZero(box):
+    global publishZero
+    publishZero = box.get_active()
+
 def scaleX(scale):
     setSetpoint()
 
@@ -148,13 +163,18 @@ def btnSetpointFromMassConnector(btn):
     
     builder.get_object("scalestoreX").set_value(pose.position.x+0.2)
     builder.get_object("scalestoreY").set_value(pose.position.y)
-    builder.get_object("scalestoreZ").set_value(pose.position.z+0.30)
+    builder.get_object("scalestoreZ").set_value(pose.position.z+0.25)
     builder.get_object("scalestoreYaw").set_value(0)
 
 def btnHookForward(btn):
-    builder.get_object("scalestoreX").set_value(builder.get_object("scalestoreX").get_value()-0.35)
-    builder.get_object("scalestoreZ").set_value(builder.get_object("scalestoreZ").get_value()+0.25)
+    builder.get_object("scalestoreX").set_value(builder.get_object("scalestoreX").get_value()-0.30)
+    #builder.get_object("scalestoreZ").set_value(builder.get_object("scalestoreZ").get_value()+0.25)
 
+def btnSetNonLinear(btn):
+    x = builder.get_object("scalestoreNonLinX").get_value()
+    y = builder.get_object("scalestoreNonLinY").get_value()
+    z = builder.get_object("scalestoreNonLinZ").get_value()
+    ros.setNonLinear(x,y,z)
 
 def draw(w, d):
     pass
@@ -180,6 +200,7 @@ if __name__ == "__main__":
 
     publishSetpoint = False
     publishJoystick = False
+    publishZero = False
 
     rospy.init_node('controller_'+prefix)
     GObject.threads_init()
@@ -210,6 +231,7 @@ if __name__ == "__main__":
         "btnReset": btnReset,
         "boxJoystick": boxJoystick,
         "boxSetpoint": boxSetpoint,
+        "boxZero": boxZero,
         "scaleX": scaleX,
         "scaleY": scaleY,
         "scaleZ": scaleZ,
@@ -217,7 +239,8 @@ if __name__ == "__main__":
         "draw": draw,
         "cmbMassConnectors": cmbMassConnectors,
         "btnSetpointFromMassConnector": btnSetpointFromMassConnector,
-        "btnHookForward": btnHookForward
+        "btnHookForward": btnHookForward,
+        "btnSetNonLinear": btnSetNonLinear
     }
     builder.connect_signals(handlers)
 
