@@ -485,7 +485,7 @@ if __name__ == "__main__":
     GObject.threads_init()
 
     # Enable joystick
-    joyThread = subprocess.Popen(["roslaunch", "ram", "joystick_module.launch"])
+    joyThread = subprocess.Popen(["rosrun", "joy", "joy_node"])
 
     rospack = rospkg.RosPack()
     package_location = rospack.get_path("ram")

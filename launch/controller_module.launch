@@ -63,5 +63,23 @@
       <rosparam param="cov/imu_av">[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]</rosparam>
       <rosparam param="cov/imu_or">[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 100000.0]</rosparam>
     </node>
+
+    <node name="fly_from_joystick" pkg="ram" type="fly_from_joystick">
+      <param name="x_axis" value="2"/> <!-- 2 -->
+      <param name="y_axis" value="1"/> <!-- 1 -->
+      <param name="z_axis" value="4"/> <!-- 4 -->
+      <param name="yaw_axis" value="3"/> <!-- 3 -->
+      <param name="x_velocity_max" value="1"/>
+      <param name="y_velocity_max" value="1"/>
+      <param name="z_velocity_max" value="1"/>
+      <param name="yaw_velocity_max" value="1"/>
+      <param name="slow_button" value="11"/> <!-- 6 -->
+      <param name="reset_button" value="10"/> <!-- 8 -->
+      <param name="land_button" value="14"/><!-- 11 -->
+      <param name="takeoff_button" value="15"/><!-- 12 -->
+      <param name="toggle_control_button" value="7" /><!-- 7 -->
+      <param name="enable_stick_control_init" value="true"/>
+      <param name="prefix" value="$(arg prefix)" />
+    </node>
   </group>
 </launch>  

@@ -2,12 +2,13 @@
 
 import sys
 import time
-from gi.repository import Gtk, cairo, Pango, PangoCairo, GObject
+from gi.repository import Gtk, cairo, Pango, PangoCairo, GObject, Gdk
 import threading
 
 import rospy
 import std_msgs.msg
 import geometry_msgs.msg
+import sensor_msgs.msg
 import tf.transformations
 import rospkg
 from ram.msg import nonlinearity
@@ -23,12 +24,13 @@ class RosConnector:
         self.pubTakeoff = rospy.Publisher("/"+prefix+"/ardrone/takeoff", std_msgs.msg.Empty, queue_size=1)
         self.pubLand = rospy.Publisher("/"+prefix+"/ardrone/land", std_msgs.msg.Empty, queue_size=1)
         self.pubReset = rospy.Publisher("/"+prefix+"/ardrone/reset", std_msgs.msg.Empty, queue_size=1)
-        self.pubSetpoint = rospy.Publisher("/"+prefix+"/setpoint", geometry_msgs.msg.Pose, queue_size=1)
+        self.pubSetpoint = rospy.Publisher("/"+prefix+"/setpoint", geometry_msgs.msg.Pose)
         self.pubCmd = rospy.Publisher("/"+prefix+"/cmd_vel", geometry_msgs.msg.Twist)
         self.pubNonLinear = rospy.Publisher("/"+prefix+"/nonlinearity", nonlinearity)
 
-        self.subJoystick = rospy.Subscriber("/cmd_vel_joy", geometry_msgs.msg.Twist, self.joyCB)
+        self.subJoystick = rospy.Subscriber("/"+prefix+"/cmd_vel_joy", geometry_msgs.msg.Twist, self.joyCB)
         self.subController = rospy.Subscriber("/"+prefix+"/cmd_vel_controller", geometry_msgs.msg.Twist, self.controllerCB)
+        self.subJoyRaw = rospy.Subscriber("/joy", sensor_msgs.msg.Joy, self.joyRawCB, queue_size=1) 
 
         self.pr = subprocess.Popen(["roslaunch","ram", "controller_module.launch", "prefix:="+prefix, "ip:="+ip])
         self.massConnectorSubscriberDict = {}
@@ -38,6 +40,14 @@ class RosConnector:
         global publishJoystick
         if publishJoystick:
             self.pubCmd.publish(msg)
+
+    def joyRawCB(self, msg):
+        Gdk.threads_enter()
+        if window.is_active():
+            if msg.buttons[3] == 1: # Change button to 3 for PS3, 8 for Joystick btn 9
+                toggleJoystickCheckbox()
+                time.sleep(0.3)
+        Gdk.threads_leave()
 
 
     def controllerCB(self, msg):
@@ -176,6 +186,13 @@ def btnSetNonLinear(btn):
     z = builder.get_object("scalestoreNonLinZ").get_value()
     ros.setNonLinear(x,y,z)
 
+def toggleJoystickCheckbox():
+    currentstate = builder.get_object("boxJoystick").get_active()
+    if currentstate:
+        builder.get_object("boxJoystick").set_active(False)
+    else:
+        builder.get_object("boxJoystick").set_active(True)
+
 def draw(w, d):
     pass
 
@@ -201,9 +218,12 @@ if __name__ == "__main__":
     publishSetpoint = False
     publishJoystick = False
     publishZero = False
+    previoustime = 0
+
 
     rospy.init_node('controller_'+prefix)
     GObject.threads_init()
+    Gdk.threads_init()
 
     rospack = rospkg.RosPack()
     package_location = rospack.get_path("ram")
@@ -248,5 +268,6 @@ if __name__ == "__main__":
     window.set_title(prefix + " ("+ip+")")
     window.show_all()
 
-
+    Gdk.threads_enter()
     Gtk.main()
+    Gdk.threads_leave()

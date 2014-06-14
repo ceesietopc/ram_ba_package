@@ -43,6 +43,7 @@ private:
   ros::Publisher reset_publisher_;
   geometry_msgs::Twist velocity_;
   std_msgs::Empty empty_;
+  std::string prefix;
 
   struct Axis
   {
@@ -93,6 +94,7 @@ public:
     buttons_.takeoff.button = 0;
     slow_factor_ = 0.2;
     enable_control_ = true;
+    prefix = "";
 
     params.getParam("x_axis", axes_.x.axis);
     params.getParam("y_axis", axes_.y.axis);
@@ -109,8 +111,9 @@ public:
     params.getParam("toggle_control_button", buttons_.toggleControl.button);
     params.getParam("slow_factor", slow_factor_);
     params.getParam("enable_stick_control_init", enable_control_);
+    params.getParam("prefix", prefix);
 
-    joy_subscriber_ = node_handle_.subscribe<sensor_msgs::Joy>("joy", 1, boost::bind(&Teleop::joyCallback, this, _1));
+    joy_subscriber_ = node_handle_.subscribe<sensor_msgs::Joy>("/joy", 1, boost::bind(&Teleop::joyCallback, this, _1));
     velocity_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("cmd_vel_joy", 1);
     land_publisher_ = node_handle_.advertise<std_msgs::Empty>("ardrone/land", 1);
     takeoff_publisher_ = node_handle_.advertise<std_msgs::Empty>("ardrone/takeoff", 1);
