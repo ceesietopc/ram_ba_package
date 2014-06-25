@@ -473,6 +473,13 @@ def adjMassConnectors(adj):
     connectors = adj.get_value()
     optiTrackUpdate()
 
+def btnSimControl(btn):
+    args = ["rosrun", "ram", "simControl.py"];
+    store = builder.get_object("liststore1")
+    for drone in store:
+        args.append(drone[2])
+    p = subprocess.Popen(args, shell=False)
+
 if __name__ == "__main__":
 
     m = xmlrpclib.ServerProxy(os.environ['ROS_MASTER_URI'])
@@ -499,6 +506,7 @@ if __name__ == "__main__":
         "btnScan": scanDrones,
         "btnExport": exportDrones,
         "btnAssign": assignIP,
+        "btnSimControl": btnSimControl,
         "launchController": launchController,
         "btnClear": btnClear,
         "rightClick": rightClick,

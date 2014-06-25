@@ -10,6 +10,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
 #include <ram/nonlinearity.h>
+#include <ram/gains.h>
 #include <cmath>
 
 class Control
@@ -26,6 +27,8 @@ private:
   float nonlinx;
   float nonliny;
   float nonlinz;
+  float xoff;
+  float yoff;
 
 
   /* ADDITIONAL PUBLISHER FOR GRAPHING PURPOSES */
@@ -66,8 +69,11 @@ private:
   // Control parameters
   bool hovermode_;
   bool velocity_damping_;
+  bool i_action_;
   double hover_treshold_;
 
+
+  ros::Subscriber gain_subscriber_;
   struct 
   {
     double p_z;
@@ -77,6 +83,7 @@ private:
     double p_rotational;
     double d_rotational;
     double velocity;
+    double i;
   } Gains;
 
   struct
@@ -102,6 +109,12 @@ private:
     double z_translational;
     double z_rotational;
   } ErrorDot;
+
+  struct
+  {
+    double x;
+    double y;
+  } isum;
 
   // general variables
   bool simulation;
@@ -135,6 +148,8 @@ public:
     nonlinx = 0;
     nonliny = 0;
     nonlinz = 0;
+    xoff = 0;
+    yoff = 0;
 
     /* ADDITIONAL PUBLISHER FOR GRAPHING PURPOSES */
     d_publisher_ = node_handle_.advertise<std_msgs::Float32>("control_d",1);
@@ -164,7 +179,6 @@ public:
     // Velocity damping
     velocity_damping_ = false;
     params.getParam("velocity_damping", velocity_damping_);
-    
 
     /* Filtering */
     // FOAW
@@ -195,6 +209,16 @@ public:
     params.getParam("gain_p_rotational", Gains.p_rotational);
     params.getParam("gain_d_rotational", Gains.d_rotational);
     params.getParam("gain_velocity", Gains.velocity);
+
+    // I action
+    i_action_ = false;
+    params.getParam("gain_i",Gains.i);
+    params.getParam("i_action",i_action_);
+    isum.x = 0;
+    isum.y = 0;
+    ROS_INFO("%f",isum.x);
+
+    gain_subscriber_ = node_handle_.subscribe("gains", 1, &Control::gainCallback, this);
   }
 
   ~Control()
@@ -214,11 +238,28 @@ public:
       Gains.d_z = config.d_z;
   }*/
 
+  void gainCallback(const ram::gains msg)
+  {
+    Gains.p_translational = msg.p_trans;
+    Gains.d_translational = msg.d_trans;
+    Gains.p_rotational = msg.p_rot;
+    Gains.d_rotational = msg.d_rot;
+    Gains.p_z = msg.p_z;
+    Gains.d_z = msg.d_z;
+    Gains.i = msg.i_action;
+    Gains.velocity = msg.v_damping;
+    i_action_ = msg.i_enabled;
+    velocity_damping_ = msg.v_enabled;
+    ROS_INFO("GAINS CHANGED");
+  }
+
   void nonlinCallback(const ram::nonlinearity msg)
   {
       nonlinx = msg.x;
       nonliny = msg.y;
       nonlinz = msg.z;
+      xoff = msg.xoff;
+      yoff = msg.yoff;
   }
 
   void setpointCallback(const geometry_msgs::Pose setpoint)
@@ -230,6 +271,12 @@ public:
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
+
+    // Check if the setpoint changed. If so, reset I action
+    if (Setpoint.x == setpoint.position.x && Setpoint.y == setpoint.position.y) {
+      isum.x = 0;
+      isum.y = 0;
+    }
 
     Setpoint.x = setpoint.position.x;
     Setpoint.y = setpoint.position.y;
@@ -297,6 +344,22 @@ public:
     Error.y_translational = ey;
     Error.z_translational = ez;
     Error.z_rotational = eyaw;
+
+
+
+    // Save to store for I action
+    if(i_action_)
+    {
+        int n = times_.size();
+        isum.x = isum.x + 0.5*ex*(times_[n]-times_[n-2]);
+        isum.y = isum.y + 0.5*ey*(times_[n]-times_[n-2]);
+    }
+    else
+    {
+      isum.x = 0;
+      isum.y = 0;
+    }
+
 
     ErrorDot.x_translational = fofw(errorsx_, times_, 6);
     ErrorDot.y_translational = fofw(errorsy_, times_, 6);
@@ -444,10 +507,23 @@ public:
     vel_action.data = vx;
     velocity_damping_publisher_.publish(vel_action);
 
+    // If I action is present and enable
+    double ix, iy;
+    if(i_action_)
+    {
+      ix = isum.x * Gains.i;
+      iy = isum.y * Gains.i;
+    }
+    else
+    {
+      ix = 0;
+      iy = 0;
+    }
+
     // Total required actions in world frame
     double wx, wy, wz, wyaw;
-    wx = px + dx + vx;
-    wy = py + dy + vy;
+    wx = px + dx + vx + xoff + ix;
+    wy = py + dy + vy + yoff + iy;
     wz = pz + dz + vz;
     wyaw = pyaw + dyaw;
 

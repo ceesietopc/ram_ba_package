@@ -11,7 +11,9 @@ import geometry_msgs.msg
 import sensor_msgs.msg
 import tf.transformations
 import rospkg
+import math
 from ram.msg import nonlinearity
+from ram.msg import gains
 
 import os
 import xmlrpclib
@@ -27,19 +29,30 @@ class RosConnector:
         self.pubSetpoint = rospy.Publisher("/"+prefix+"/setpoint", geometry_msgs.msg.Pose)
         self.pubCmd = rospy.Publisher("/"+prefix+"/cmd_vel", geometry_msgs.msg.Twist)
         self.pubNonLinear = rospy.Publisher("/"+prefix+"/nonlinearity", nonlinearity)
+        self.pubGains = rospy.Publisher("/"+prefix+"/gains", gains)
 
         self.subJoystick = rospy.Subscriber("/"+prefix+"/cmd_vel_joy", geometry_msgs.msg.Twist, self.joyCB)
         self.subController = rospy.Subscriber("/"+prefix+"/cmd_vel_controller", geometry_msgs.msg.Twist, self.controllerCB)
         self.subJoyRaw = rospy.Subscriber("/joy", sensor_msgs.msg.Joy, self.joyRawCB, queue_size=1) 
 
+        self.subSetpoint = rospy.Subscriber("/"+prefix+"/setpoint", geometry_msgs.msg.Pose, self.setpointCB)
+        self.setpoint = geometry_msgs.msg.Pose()
+
         self.pr = subprocess.Popen(["roslaunch","ram", "controller_module.launch", "prefix:="+prefix, "ip:="+ip])
         self.massConnectorSubscriberDict = {}
         self.massConnectorPositionDict = {}
+
 
     def joyCB(self, msg):
         global publishJoystick
         if publishJoystick:
             self.pubCmd.publish(msg)
+
+    def setpointCB(self, msg):
+        Gdk.threads_enter()
+        self.setpoint = msg
+        Gdk.threads_leave()
+
 
     def joyRawCB(self, msg):
         Gdk.threads_enter()
@@ -53,9 +66,17 @@ class RosConnector:
     def controllerCB(self, msg):
         global publishJoystick
         global publishZero
-        if not publishJoystick and not publishZero:
+        global publishNothing
+
+        if not publishJoystick and not publishZero and not publishNothing:
             self.pubCmd.publish(msg)
-        if publishZero:
+        if publishNothing and not publishJoystick:
+            # Publish a non hover
+            msg = geometry_msgs.msg.Twist()
+            msg.angular.x = 1;
+            msg.angular.y = 1;
+            self.pubCmd.publish(msg)
+        if publishZero and not publishNothing and not publishJoystick:
             self.pubCmd.publish(geometry_msgs.msg.Twist())
     
     def clean(self):
@@ -84,7 +105,7 @@ class RosConnector:
         msg.position.y = y;
         msg.position.z = z;
 
-        quaternion = tf.transformations.quaternion_from_euler(0, 0, yaw)
+        quaternion = tf.transformations.quaternion_from_euler(0, 0, (yaw*2*math.pi)/(360))
         msg.orientation.x = quaternion[0]
         msg.orientation.y = quaternion[1]
         msg.orientation.z = quaternion[2]
@@ -100,12 +121,28 @@ class RosConnector:
     def getMassConnectorLocation(self, prefix):
         return self.massConnectorPositionDict[prefix]
 
-    def setNonLinear(self, x, y, z):
+    def setNonLinear(self, x, y, z, xoff, yoff):
         msg = nonlinearity()
         msg.x = x
         msg.y = y
         msg.z = z
+        msg.xoff = xoff
+        msg.yoff = yoff
         self.pubNonLinear.publish(msg)
+
+    def setGains(self, p_z, d_z, p_rot, d_rot, p_trans, d_trans, i_action, v_damping, i_enabled, v_enabled):
+        msg = gains()
+        msg.p_z = p_z
+        msg.d_z = d_z
+        msg.p_rot = p_rot
+        msg.d_rot = d_rot
+        msg.p_trans = p_trans
+        msg.d_trans = d_trans
+        msg.i_action = i_action
+        msg.v_damping = v_damping
+        msg.i_enabled = i_enabled
+        msg.v_enabled = v_enabled
+        self.pubGains.publish(msg)
 
 def btnClose(widget, event):
     ros.clean()
@@ -142,6 +179,10 @@ def boxZero(box):
     global publishZero
     publishZero = box.get_active()
 
+def boxNothing(box):
+    global publishNothing
+    publishNothing = box.get_active()
+
 def scaleX(scale):
     setSetpoint()
 
@@ -171,20 +212,35 @@ def btnSetpointFromMassConnector(btn):
     text = builder.get_object("listStoreMassConnectors")[active][0]
     pose = ros.getMassConnectorLocation(text)
     
-    builder.get_object("scalestoreX").set_value(pose.position.x+0.2)
+    builder.get_object("scalestoreX").set_value(pose.position.x+0.3)
     builder.get_object("scalestoreY").set_value(pose.position.y)
-    builder.get_object("scalestoreZ").set_value(pose.position.z+0.25)
+    builder.get_object("scalestoreZ").set_value(pose.position.z+0.27)
     builder.get_object("scalestoreYaw").set_value(0)
 
 def btnHookForward(btn):
-    builder.get_object("scalestoreX").set_value(builder.get_object("scalestoreX").get_value()-0.30)
-    #builder.get_object("scalestoreZ").set_value(builder.get_object("scalestoreZ").get_value()+0.25)
+    builder.get_object("scalestoreX").set_value(builder.get_object("scalestoreX").get_value()-0.45)
+    builder.get_object("scalestoreZ").set_value(builder.get_object("scalestoreZ").get_value()+0.05)
 
 def btnSetNonLinear(btn):
     x = builder.get_object("scalestoreNonLinX").get_value()
     y = builder.get_object("scalestoreNonLinY").get_value()
     z = builder.get_object("scalestoreNonLinZ").get_value()
-    ros.setNonLinear(x,y,z)
+    offx = builder.get_object("scalestoreOffsetX").get_value()
+    offy = builder.get_object("scalestoreOffsetY").get_value()
+    ros.setNonLinear(x,y,z,offx,offy)
+
+def btnGains(btn):
+    p_z = builder.get_object("scalestoreGainPZ").get_value()
+    d_z = builder.get_object("scalestoreGainDZ").get_value()
+    p_rot = builder.get_object("scalestoreGainPRot").get_value()
+    d_rot = builder.get_object("scalestoreGainDRot").get_value()
+    p_trans = builder.get_object("scalestoreGainPTrans").get_value()
+    d_trans = builder.get_object("scalestoreGainDTrans").get_value()
+    i_action = builder.get_object("scalestoreGainI").get_value()
+    v_damping = builder.get_object("scalestoreGainVel").get_value()
+    i_enabled = builder.get_object("boxIAction").get_active()
+    v_enabled = builder.get_object("boxVelDamping").get_active()
+    ros.setGains(p_z, d_z, p_rot, d_rot, p_trans, d_trans, i_action, v_damping, i_enabled, v_enabled)
 
 def toggleJoystickCheckbox():
     currentstate = builder.get_object("boxJoystick").get_active()
@@ -195,6 +251,15 @@ def toggleJoystickCheckbox():
 
 def draw(w, d):
     pass
+
+def readSetpointFromConnector():
+    if builder.get_object("boxLive").get_active():
+        builder.get_object("scaleX").set_value(ros.setpoint.position.x)
+        builder.get_object("scaleY").set_value(ros.setpoint.position.y)
+        builder.get_object("scaleZ").set_value(ros.setpoint.position.z)
+        euler = tf.transformations.euler_from_quaternion([ros.setpoint.orientation.x, ros.setpoint.orientation.y, ros.setpoint.orientation.z, ros.setpoint.orientation.w])
+        builder.get_object("scaleYaw").set_value(euler[2])
+    return True
 
 if __name__ == "__main__":
 
@@ -218,10 +283,13 @@ if __name__ == "__main__":
     publishSetpoint = False
     publishJoystick = False
     publishZero = False
+    publishNothing = False
     previoustime = 0
 
 
     rospy.init_node('controller_'+prefix)
+
+    GObject.timeout_add(250, readSetpointFromConnector)
     GObject.threads_init()
     Gdk.threads_init()
 
@@ -252,6 +320,7 @@ if __name__ == "__main__":
         "boxJoystick": boxJoystick,
         "boxSetpoint": boxSetpoint,
         "boxZero": boxZero,
+        "boxNothing": boxNothing,
         "scaleX": scaleX,
         "scaleY": scaleY,
         "scaleZ": scaleZ,
@@ -260,9 +329,12 @@ if __name__ == "__main__":
         "cmbMassConnectors": cmbMassConnectors,
         "btnSetpointFromMassConnector": btnSetpointFromMassConnector,
         "btnHookForward": btnHookForward,
-        "btnSetNonLinear": btnSetNonLinear
+        "btnSetNonLinear": btnSetNonLinear,
+        "btnGains": btnGains
     }
     builder.connect_signals(handlers)
+
+    
 
     window = builder.get_object("window1")
     window.set_title(prefix + " ("+ip+")")

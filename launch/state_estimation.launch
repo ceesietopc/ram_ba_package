@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+  <group ns="John">
+
+    <node pkg="ram" type="state_estimation" name="state_estimation" output="screen">
+      <param name="K" value="70" />               <!-- Integration gain for State Estimation Filter of position derivative -->
+      <param name="uncertainty_band" value="0.01" />
+      <param name="pose_memory" value="25" />
+    </node>
+
+</group>
+</launch>
