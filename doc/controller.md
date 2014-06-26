@@ -3,8 +3,10 @@ Controller
 The controller is the main part of this package. It is written in C++, but an interface was added using Python and Glade to ease setting new setpoints (controller.py). In the process this functionality is expanded to also be able to configure the controller parameters. Controllers are to be started from [the connector](connector.md). 
 ![Interface of the controller][1]
 > When referring to axes or directions, the inertial frame is used, **not** the body fixed frame.
+
 Functionality
 ------------
+
 ### Basic quadcopter functionality
 The three buttons at the top of the application can be used to send the Take-off, Land and Reset commands to the drone.
 
