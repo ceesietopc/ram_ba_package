@@ -23,15 +23,21 @@ Connector functionality
 ### Scan
 Scan for drones by pressing the "Scan" button. The application will look in the list of currently detected WiFi networks provided by the NetworkManager and look for SSID's containing the SSID_SLUG to identify drones. When drones are detected that are not in the list yet, a prefix (string not containing spaces or special characters) and the trackable ID from the OptiTrack software have to be given.
 > Detecting drones can take very long. This seems to be a bug in the NetworkManager. Disabling and enabling the WiFi (sometimes) helps.
+
 ### Import and Export
 Since the prefix and trackable ID are usually constant over multiple experiments it is possible to export the current list of drones. Just the SSID, prefix and Trackable ID are exported. Pressing the "Import" button before starting a scan will import this information, so drones are recognized when performing the scan.
+
 ### Assign
 Pressing "Assign" will make the application loop through the list of Ad-Hoc available drones (that is: drones found while the last scan was performed) and perform the steps described in [this document][2] for all of them, resulting in a unique IP address per drone.
+
 > When you have to enter the IP address by hand (for example, when restarting the app while the drone is still powered on), right-click that drone in the list to define its IP.
+
 ### Clear
 Pressing "Clear" will clear the list of drones.
+
 ### Start a controller
 By double clicking a certain drone in the list, a [controller](controller.md) will be started.
+
 ### Automatically performed tasks
 The application will automatically update the configuration of the mocap_optitrack package and restart the mocap_optitrack node on every change of the list. Besides that, a *joy* node will be launched to listen for joystick input.
 
