@@ -18,7 +18,7 @@ The implemented features are listed below.
  3. Joystick teleoperation. See [Joystick](joystick.md) page.
  4. Keyboard teleoperation. See [Keyboard](keyboard.md) page.
 
-Since documentation on the features is quite specific, it is recommended to take a look at the [tutorials](#tutorials) to get started.
+Since documentation on the features is quite specific, it is recommended to take a look at the tutorials to get started.
 
 Folder structure
 -----------------
@@ -42,7 +42,7 @@ py
 src
 :   Folder containing the C++ source of the nodes used within this project.
 
-Tutorials and guides {#tutorials}
+Tutorials and guides
 --------------
 [Environment setup](environment.md)
 This tutorial guides you through the setup and configuration of the OptiTrack system, the dedicated Wifi network and the AR.Drones.
