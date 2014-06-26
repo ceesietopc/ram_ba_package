@@ -6,16 +6,17 @@ This is the documentation for the ROS package *ram*, consisting of both technica
 > - All code within this project is intended for reuse and therefore documented. If things are unclear, please contact me (ceesietopc).
 - It is assumed in all directions given in this documentation that the latest version of the source code is placed within a Catkin workspace and built using catkin_make. "source devel/setup.bash" should be executed after catkin_make by hand or automatically by placing it in .bashrc to make sure the executables can be found.
 - roscore should be running. 
+
 Package goal and functionality
 -------------------------
 This package was developed during a bachelor assignment at the University of Twente. The goal of the assignment was to use a set of Parrot AR.Drone 2.0s for the pick-up (using a hook and ring) and movement of a mass. To perform this task in an indoor scenario, this package implements a position controller, based on state feedback from a [NaturalPoint OptiTrack][1] sytem. Besides position control, tele-operation through the keyboard and a joystick were also implemented.
 
 The implemented features are listed below.
 
- 1. Automated connection to multiple AR.Drones through a dedicated Wifi network (including GUI). See [<i class="icon-share"></i> Connector](connector.md) page.
- 2. Position control of multiple quadcopters using PD control (including GUI). See [<i class="icon-share"></i> Controller](controller.md) page.
- 3. Joystick teleoperation. See [<i class="icon-share"></i> Joystick](joystick.md) page.
- 4. Keyboard teleoperation. See [<i class="icon-share"></i> Keyboard](keyboard.md) page.
+ 1. Automated connection to multiple AR.Drones through a dedicated Wifi network (including GUI). See [Connector](connector.md) page.
+ 2. Position control of multiple quadcopters using PD control (including GUI). See [Controller](controller.md) page.
+ 3. Joystick teleoperation. See [Joystick](joystick.md) page.
+ 4. Keyboard teleoperation. See [Keyboard](keyboard.md) page.
 
 Since documentation on the features is quite specific, it is recommended to take a look at the [tutorials](#tutorials) to get started.
 
@@ -43,10 +44,10 @@ src
 
 Tutorials and guides {#tutorials}
 --------------
-[<i class="icon-share"></i> Environment setup](environment.md)
+[Environment setup](environment.md)
 This tutorial guides you through the setup and configuration of the OptiTrack system, the dedicated Wifi network and the AR.Drones.
 
-[<i class="icon-share"></i> Connecting](connecting.md)
+[Connecting](connecting.md)
 This tutorial describes how to use the GUI of the connector to connect to multiple drones.
 
 Matlab
@@ -69,9 +70,6 @@ This package uses multiple other non-standard ROS packages. They are shortly men
  - [ardrone_autonomy][3] ROS driver for the Parrot AR.Drone. Since multiple quadcopter are to be used, [a version modified by kbogert][4] is used, following [this discussion][5].
  - [mocap_optitrack][6] package to listen for and interpret messages from the OptiTrack system.
  - [yocs_cmd_vel_mux][7] package to switch automatically between multiple *cmd_vel* topics.
-
-> Written with [StackEdit](https://stackedit.io/).
-
 
   [1]: http://www.naturalpoint.com/optitrack/
   [2]: http://www.mathworks.nl/hardware-support/robot-operating-system.html
