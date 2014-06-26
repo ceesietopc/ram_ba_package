@@ -1,3 +1,10 @@
+/*! \file controller.cpp
+* \brief controller executable for the RAM package
+*
+* This executable implements a PD controller. Gains, non-linear actions, velocity-damping and integrative actions can be set through a Python UI.
+*
+*/
+
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
@@ -13,23 +20,24 @@
 #include <ram/gains.h>
 #include <cmath>
 
+//! Controller class.
 class Control
 {
 private:
   ros::NodeHandle node_handle_;
-  ros::Subscriber sim_subscriber_;
+  ros::Subscriber sim_subscriber_; // Very untested at the moment. Old.
   ros::Subscriber setpoint_subscriber_;
   ros::Subscriber odom_subscriber_;
   ros::Publisher velocity_publisher_;
 
-  /* Non linear part */
+  /* Non linear control part */
   ros::Subscriber nonlin_subscriber_;
   float nonlinx;
   float nonliny;
   float nonlinz;
   float xoff;
   float yoff;
-
+  /* End non linear control part */
 
   /* ADDITIONAL PUBLISHER FOR GRAPHING PURPOSES */
   ros::Publisher p_publisher_;
@@ -42,7 +50,7 @@ private:
   ros::Publisher velocity_damping_publisher_;
   /* END ADDITIONAL PUBLISHERS */
 
-  /* Memory */
+  /* Memory for error calculations*/
   std::vector <double> errorsx_; // Previous errors in x
   std::vector <double> errorsy_; // Previous errors in y
   std::vector <double> errorsz_; // Previous errors in z
@@ -72,7 +80,6 @@ private:
   bool i_action_;
   double hover_treshold_;
 
-
   ros::Subscriber gain_subscriber_;
   struct 
   {
@@ -92,7 +99,7 @@ private:
     double y;
     double z;
     double yaw;
-  } Setpoint; // Check launch file for additional description of setpoint
+  } Setpoint;
 
   struct 
   {
@@ -110,6 +117,7 @@ private:
     double z_rotational;
   } ErrorDot;
 
+  // Integral action
   struct
   {
     double x;
@@ -129,6 +137,7 @@ public:
     ros::NodeHandle params("~");
 
     // If simulation is true, get data feedback from simulation and run simulationCallback. Otherwise, use OptiTrack
+    // This feature is untested. It is very untested at the moment.
     simulation = false;
     params.getParam("simulation",simulation);
     if(simulation) {
@@ -140,7 +149,7 @@ public:
       ROS_INFO("CONTROL MODE");
     }
 
-    // Velocity publisher
+    // Velocity publisher for velocity damping.
     velocity_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("cmd_vel_controller", 1);
 
     /* Non linear part */
@@ -160,7 +169,7 @@ public:
     yaw_publisher_ = node_handle_.advertise<std_msgs::Float32>("yaw",1);
     foaw_publisher_ = node_handle_.advertise<std_msgs::Int32>("foaw_d",1);
     velocity_damping_publisher_ = node_handle_.advertise<std_msgs::Float32>("velocity_damping",1);
-    /* END ADDITIOANL PUBLISHERS */
+    /* END ADDITIONAL PUBLISHERS */
 
     // Subscriber for setpoint changes
     setpoint_subscriber_ = node_handle_.subscribe("setpoint", 1, &Control::setpointCallback, this);
@@ -228,16 +237,7 @@ public:
     velocity_publisher_.publish(velocity_);
   }
 
-  /*void dynConfCb(controller::ParamsConfig &config, uint32_t level)
-  {
-      Gains.d_translational = config.d_translational;
-      Gains.d_rotational = config.d_rotational;
-      Gains.p_translational = config.p_translational;
-      Gains.p_rotational = config.p_rotational;
-      Gains.p_z = config.p_z;
-      Gains.d_z = config.d_z;
-  }*/
-
+  //! Gain callback. Gains are changed when this function is called.
   void gainCallback(const ram::gains msg)
   {
     Gains.p_translational = msg.p_trans;
@@ -253,6 +253,7 @@ public:
     ROS_INFO("GAINS CHANGED");
   }
 
+  //! Nonlin Callback. The nonlinear part is disabled or enabled when this function is called
   void nonlinCallback(const ram::nonlinearity msg)
   {
       nonlinx = msg.x;
@@ -262,17 +263,17 @@ public:
       yoff = msg.yoff;
   }
 
+  //! Setpoint callback. If this function is called, the setpoint is changed.
   void setpointCallback(const geometry_msgs::Pose setpoint)
   {
     // Coordinate frame: absolute world frame.
     // Since a pose is used as input, we have to deal with the quaternion.
-    //
     tf::Quaternion q(setpoint.orientation.x, setpoint.orientation.y, setpoint.orientation.z, setpoint.orientation.w);
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    // Check if the setpoint changed. If so, reset I action
+    // Check if the setpoint changed. If so, reset I action. This is the only anti wind-up reset.
     if (Setpoint.x == setpoint.position.x && Setpoint.y == setpoint.position.y) {
       isum.x = 0;
       isum.y = 0;
@@ -284,6 +285,7 @@ public:
     Setpoint.yaw = yaw;
   }
 
+  //! Error calculation of this class: if a new current position is received, calculate the errors
   void odomCallback(const nav_msgs::Odometry odom)
   {
     // Coordinate frame: absolute world frame.
@@ -300,22 +302,21 @@ public:
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
-    //yaw_ = lowPassFilter(yaw, yaw_, dt_, T_) ;
 
     yaws_.push_back(yaw);
     yaw_ = avg(yaws_,10);
-    //yaw_ = yaw;
 
     std_msgs::Float32 yaw_msg;
     yaw_msg.data = yaw_;
     yaw_publisher_.publish(yaw_msg);
 
-    // Calculate errors. Positive error -> negative action needed
+    // Calculate errors.
     ex = (Setpoint.x - odom.pose.pose.position.x);
     ey = (Setpoint.y - odom.pose.pose.position.y);
     ez = (Setpoint.z - odom.pose.pose.position.z);
     eyaw = Setpoint.yaw - yaw_;
 
+    // Store errors for later reference
     errorsx_.push_back(ex);
     errorsy_.push_back(ey);
     errorsz_.push_back(ez);
@@ -345,9 +346,7 @@ public:
     Error.z_translational = ez;
     Error.z_rotational = eyaw;
 
-
-
-    // Save to store for I action
+    // Save to store for I action. For some wicked reason, we have to look two frames back
     if(i_action_)
     {
         int n = times_.size();
@@ -360,7 +359,7 @@ public:
       isum.y = 0;
     }
 
-
+    // Get derivative of the error by using a fixed order fixed window approach
     ErrorDot.x_translational = fofw(errorsx_, times_, 6);
     ErrorDot.y_translational = fofw(errorsy_, times_, 6);
     ErrorDot.z_translational = fofw(errorsz_, times_, 6);
@@ -370,6 +369,7 @@ public:
     errord_msg.data = ErrorDot.x_translational;
     errordx_publisher_.publish(errord_msg);
 
+    // If hovermode is enabled, and you are within the treshold, publish hover message
     if(hovermode_)
     {
       if(std::abs(Error.x_translational) < hover_treshold_ && std::abs(Error.y_translational) < hover_treshold_ && std::abs(Error.z_translational) < hover_treshold_)
@@ -387,7 +387,7 @@ public:
       }
     }
 
-    // Publish once every x time
+    // Publish once every x ms, based on the frequency.
     if(current_time - previous_publish_time_ > 1/freq_)
     {
       publishControl();
@@ -399,6 +399,7 @@ public:
   void simulationCallback(const gazebo_msgs::ModelStates pose)
   {
     // This function is called whenever a message on the simulation channel is found
+    // This is untested at the moment
     
     // Calculate roll pitch and yaw from quaternion data
     tf::Quaternion q(pose.pose[11].orientation.x, pose.pose[11].orientation.y, pose.pose[11].orientation.z, pose.pose[11].orientation.w);
@@ -415,22 +416,18 @@ public:
     yaw_publisher_.publish(yaw_msg);
 
     // Position error
+    // FIXED DEFINITION OF THE DRONE
     Error.x_translational = -(Setpoint.x - pose.pose[11].position.x);
     Error.y_translational = -(Setpoint.y - pose.pose[11].position.y);
     Error.z_translational = Setpoint.z - pose.pose[11].position.z;
 
+    // Publish control
     publishControl();
-    
-    //ROS_INFO("Setpoint %f %f %f", Setpoint.x, Setpoint.y, Setpoint.z);
-    ROS_INFO("Error %f %f %f %f", Error.x_translational, Error.y_translational, Error.z_translational, yaw);
-
   } 
 
   void publishControl()
   {
     // This function relates all errors in absolute world frame to body actions.
-    // Positive errors means that we need positive action in that direction
-
     std_msgs::Float32 errorx_msg;
     errorx_msg.data = Error.x_translational;
     errorx_publisher_.publish(errorx_msg);
@@ -480,7 +477,6 @@ public:
     std_msgs::Float32 p_action;
     p_action.data = px;
     p_publisher_.publish(p_action);
-    //ROS_INFO("P-action %f", Error.x_translational);
 
     // D - action
     double dx, dy, dz, dyaw;
@@ -493,6 +489,7 @@ public:
     d_action.data = dx;
     d_publisher_.publish(d_action);
 
+    // Absolute velocity damping
     double vx, vy, vz;
     vx = 0; vy = 0; vz = 0;
     // Make it go through honey! 
@@ -528,7 +525,7 @@ public:
     wyaw = pyaw + dyaw;
 
     // Transformation to the body fixed frame
-    // This differs between simulation and real life
+    // This can differ between simulation and real life
     double qx, qy, qz, qyaw;
     if(simulation)
     {
@@ -543,7 +540,6 @@ public:
     qz = wz;
     qyaw = wyaw;
 
-    
     velocity_.linear.x = qx;
     velocity_.linear.y = qy;
     velocity_.linear.z = qz;
@@ -567,105 +563,17 @@ public:
     std_msgs::Float32 tot_x;
     tot_x.data = velocity_.linear.x;
     x_publisher_.publish(tot_x);
-    //ROS_INFO("before publish");
     velocity_publisher_.publish(velocity_);
   }
 
-  // Filter functions
+  //! Simple LowPassFilter implementation
   double lowPassFilter(double x, double y0, double dt, double T) // Extremely simple filter 
   {
      double res = y0 + (x - y0) * (dt/(dt+T));
      return res;
   }
 
-  double stateEstimationFilter(double x, double y0, double K)
-  {
-      /// TODO
-
-      /*double period;
-      period =  current_time - prev_time_;
-      if(prev_time_ != 0 && period > 0)
-      {   
-          ErrorDot.x_translational = K_*(Error.x_translational - PrevError.x_translational);
-          ErrorDot.y_translational = K_*(Error.y_translational - PrevError.y_translational);
-          ErrorDot.z_translational = K_*(Error.z_translational - PrevError.z_translational);
-          ErrorDot.z_rotational = K_*(Error.z_rotational - PrevError.z_rotational);
-
-          PrevError.x_translational += period*K_*(Error.x_translational - PrevError.x_translational);
-          PrevError.y_translational += period*K_*(Error.y_translational - PrevError.y_translational);
-          PrevError.z_translational += period*K_*(Error.z_translational - PrevError.z_translational);
-          PrevError.z_rotational += period*K_*(Error.z_rotational - PrevError.z_rotational);
-      }*/
-      return x;
-  }
-
-  double foaw(std::vector<double> memory, double band, int max)
-  {
-
-    /* FOAW approach on error */
-    if(times_.size() > 1)
-    {
-      // We can calculate a speed!
-      // We are never going to use more poses than pose_memory, so check for that
-      /* TODO
-    
-      
-      // At this point, we know the final number of poses available
-      int n;
-      n = times_.size();
-      // FOAW outer loop
-      // In this loop, we check if, given a certain beginning of the window, all points fit the line.
-      // Loops over a set of possible steps back.
-      int samplesBack;
-      
-      bool optimalSampleReached;
-      double windowSpeed_x, windowSpeed_y, windowSpeed_z;
-      optimalSampleReached = false; 
-      samplesBack = 1;
-      while(!optimalSampleReached)
-      {
-        windowSpeed_x = (errorsx_[n-1] - errorsx_[n-1-samplesBack])/(times_[n-1] - times_[n-1-samplesBack]);
-        windowSpeed_y = (errorsy_[n-1] - errorsy_[n-1-samplesBack])/(times_[n-1] - times_[n-1-samplesBack]);
-        windowSpeed_z = (errorsz_[n-1] - errorsz_[n-1-samplesBack])/(times_[n-1] - times_[n-1-samplesBack]);
-        // At this point, we have a line through the two poins we know (at last and last - steps back). We do not have to check those. Check all points inbetween
-        bool allInBand;
-        int i;
-        allInBand = true;
-        for(i = n-1-samplesBack+1; i < n-1; i++)
-        {
-          if((std::abs(errorsx_[n-1-samplesBack] + windowSpeed_x*(times_[i]-times_[n-1-samplesBack])) > std::abs(errorsx_[i])+uncertainty_band_)
-            && (std::abs(errorsy_[n-1-samplesBack] + windowSpeed_y*(times_[i]-times_[n-1-samplesBack])) > std::abs(errorsy_[i])+uncertainty_band_)
-            && (std::abs(errorsz_[n-1-samplesBack] + windowSpeed_z*(times_[i]-times_[n-1-samplesBack])) > std::abs(errorsz_[i])+uncertainty_band_))
-          {
-            // If this happens, we can state that we cannot use this frame. End loop
-            allInBand = false;
-            break;
-          }
-        }
-
-        // this many steps back still worked. Awesome! Try one more if possible
-        if(allInBand && n > samplesBack + 1)
-        {
-          samplesBack++;
-          if(samplesBack > error_memory_)
-          {
-            optimalSampleReached = true;
-          }
-        }
-        else
-        {
-          // Too bad, we have to use this many steps back. Exit loop!
-          optimalSampleReached = true;
-        }
-      }
-      std_msgs::Int32 fb;
-    fb.data = samplesBack+1;
-    foaw_publisher_.publish(fb);
-      */
-      return memory.back();
-    }
-  }
-
+  //! First order fixed window approach to get the derivative
   double fofw(std::vector<double> memory, std::vector<double> times, int samplesBack)
   {
     int n = times.size();
@@ -679,6 +587,7 @@ public:
     }
   }
 
+  //! Get the average from a set of values
   double avg(std::vector<double> memory, int samplesBack)
   {
     if(memory.size() > samplesBack){
@@ -686,13 +595,8 @@ public:
       s = 0;
       for(int n = 0; n< samplesBack; n++)
       {
-
           s = s + memory[memory.size()-n-1];
-        
-          
-
       }
-
       return s/samplesBack;
     }
     else 
@@ -707,13 +611,7 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "controller");
   Control control;
-/*
-  dynamic_reconfigure::Server<controller::ParamsConfig> srv;
-  dynamic_reconfigure::Server<controller>::CallbackType f;
-  f = boost::bind(&control::dynConfCb, &control, _1, _2);
-  srv.setCallback(f);*/
 
   ros::spin();
   return 0;
 }
-

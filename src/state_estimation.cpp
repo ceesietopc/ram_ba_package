@@ -1,3 +1,11 @@
+/*! \file state_estimation.cpp
+* \brief State estimation executable for the RAM package
+*
+* This executable reads the raw data from the mocap_optitrack pose channels and uses a fixed window approach to get the derivative.
+* For hystorical purposes, an adaptive window approach and discrete derivative approach are also available.
+*
+*/
+
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
@@ -8,42 +16,47 @@
 #include <vector>
 #include <cmath>     /* abs */
 
+//! State Estimation class
 class StateEstimation
 {
 private:
 	ros::NodeHandle node_handle_;
 	ros::Subscriber pose_subscriber_;
-	ros::Publisher pose_publisher_;
+	ros::Publisher pose_publisher_; // OLD?
 	ros::Publisher vel_publisher_;
 	ros::Publisher odom_publisher_;
-	ros::Publisher pitch_publisher_; // Just for testing!
-	ros::Publisher foaw_publisher_;
+	ros::Publisher pitch_publisher_; // Additional publisher for diagnostic purposes
+	ros::Publisher foaw_publisher_; // Additional publisher for diagnostic purposes
 
-	geometry_msgs::Pose prev_pose_;
+	geometry_msgs::Pose prev_pose_; // OLD?
+	double prev_time_;				// OLD?
+	double prev_yaw_; 				// OLD?
+	double T_, dt_, K_, rate_x_, rate_y_, rate_z_, rate_yaw_; // OLD? Low Pass filter and State estimation approach of derivative
 	
-	std::vector <geometry_msgs::Pose> poses_; // Previous poses
-	std::vector <double> times_; // Corresponding times
-	int pose_memory_; // Max poses stored
-	double uncertainty_band_; // Max band around pose to find line fitting
+	std::vector <geometry_msgs::Pose> poses_; 	// Previous poses
+	std::vector <double> times_; 				// Corresponding times
+	int pose_memory_; 							// Max poses stored
+
+	// FOAW settings
+	double uncertainty_band_; 					// Max band around pose to find line fitting
 
 	geometry_msgs::Pose pose_;
 	geometry_msgs::Twist prev_vel_;
-	geometry_msgs::Twist vel_;
-	double prev_time_;
-	double prev_yaw_; // State filter estimation
+	geometry_msgs::Twist vel_;	
 	
-
-	double T_, dt_, K_, rate_x_, rate_y_, rate_z_, rate_yaw_;
 public:
 	StateEstimation()
 	{
 		ros::NodeHandle params("~");
 
-		T_ = 0.2; //sec
-		dt_ = 0.02; //ms
-		K_ = 100;
+		// Set default values
+		T_ = 0.2; 		// Low Pass Filter: sec
+		dt_ = 0.02; 	// Low Pass Filter: ms
+		K_ = 100;		// State Estimation Approach Gain
 		pose_memory_ = 15;
 		uncertainty_band_ = 0.01;
+
+		// Update with values from launch file
 		params.getParam("K", K_);
 		params.getParam("pose_memory", pose_memory_);
 		params.getParam("uncertainty_band", uncertainty_band_);
@@ -51,6 +64,8 @@ public:
 		// Set previous time to zero
 		prev_time_ = 0;
 
+
+		// Init subscribers
 		pose_subscriber_ = node_handle_.subscribe("unfiltered_pose", 1, &StateEstimation::poseCallback, this);
 		pose_publisher_ = node_handle_.advertise<geometry_msgs::Pose>("filtered_pose",1);
 		vel_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("filtered_vel",1);
@@ -68,10 +83,11 @@ public:
 		nav_msgs::Odometry odom;
 		odom.header.stamp = ros::Time::now();
 		odom.header.frame_id = "filtered_state";
-		// Do not filter pose for now
+		
+		// Do not filter pose for now. It is smooth enough.
 		odom.pose.pose = pose;
 
-		/* PSEUDO CODE FOAW */
+		/* FOAW BEGIN */
 
 		// Get time
 		double current_time;
@@ -140,24 +156,34 @@ public:
 					optimalSampleReached = true;
 				}
 			}
+			/* END FOAW */
+			/* BEGIN FOFW Dirty implementation of fixed window: set samplesBack, independent of whole calculation above */
 			if(n > 10)
 			{
 				samplesBack = 10;
 			}
+			/* END FOFW */
+			/* BEGIN Discrete Derivative (dirty again, just here for comparison) */
+			if(false)
+			{
+				samplesBack = 2;
+			}
+			/* END Discrete Derivative */
 			// At this point, we now how many points we can look back. Calculate final speed
 			vel_.linear.x = (poses_[n-1].position.x - poses_[n-1-samplesBack+1].position.x)/(times_[n-1] - times_[n-1-samplesBack+1]);
 			vel_.linear.y = (poses_[n-1].position.y - poses_[n-1-samplesBack+1].position.y)/(times_[n-1] - times_[n-1-samplesBack+1]);
 			vel_.linear.z = (poses_[n-1].position.z - poses_[n-1-samplesBack+1].position.z)/(times_[n-1] - times_[n-1-samplesBack+1]);
 
+			// Additional publisher to check FOAW performance
 			std_msgs::Int32 fb;
 			fb.data = samplesBack+1;
 			foaw_publisher_.publish(fb);
 
 			// Publish.
 			odom.twist.twist = vel_;
-			vel_publisher_.publish(vel_);
-			pose_publisher_.publish(pose);
-			odom_publisher_.publish(odom);
+			vel_publisher_.publish(vel_);	// Used only for absolute velocity damping
+			pose_publisher_.publish(pose); // Not used, easy for plotting though.
+			odom_publisher_.publish(odom); // Used by controller.
 		}
 		else
 		{
@@ -165,6 +191,7 @@ public:
 		}
 	}
 
+	//! Old: A simple low pass filter implementation
 	double lowPassFilter(double x, double y0, double dt, double T) // Taken from http://en.wikipedia.org/wiki/Low-pass_filter
 	{
 	   double res = y0 + (x - y0) * (dt_/(dt_+T_));

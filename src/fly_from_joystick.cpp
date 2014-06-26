@@ -1,37 +1,21 @@
-//=================================================================================================
-// Copyright (c) 2012, Johannes Meyer, TU Darmstadt
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the Flight Systems and Automatic Control group,
-//       TU Darmstadt, nor the names of its contributors may be used to
-//       endorse or promote products derived from this software without
-//       specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//=================================================================================================
-
+/*! \file fly_from_joystick.cpp 
+* \brief Fly From joystick executable for the RAM package
+*
+* This package enables you to control a Parrot AR.Drone from the keyboard of your computer or laptop. It publishes to a number of topics:
+* - /ardrone/takeoff
+* - /ardrone/land
+* - /ardrone/reset
+* - /cmd_vel
+*
+* This package is inspired by another joystick teleop package from https://github.com/tu-darmstadt-ros-pkg.
+*/
 
 #include <ros/ros.h>
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Twist.h>
 #include <std_msgs/Empty.h> 
 
+/*! Teleoperation class, enabling the use of a joystick to for remote control */
 class Teleop
 {
 private:
@@ -43,7 +27,7 @@ private:
   ros::Publisher reset_publisher_;
   geometry_msgs::Twist velocity_;
   std_msgs::Empty empty_;
-  std::string prefix;
+  std::string prefix; /**< This seems unused */
 
   struct Axis
   {
@@ -80,6 +64,7 @@ public:
   {
     ros::NodeHandle params("~");
 
+    // Default values
     axes_.x.axis = 0;
     axes_.x.max = 2.0;
     axes_.y.axis = 0;
@@ -96,6 +81,7 @@ public:
     enable_control_ = true;
     prefix = "";
 
+    // Read parameters from file
     params.getParam("x_axis", axes_.x.axis);
     params.getParam("y_axis", axes_.y.axis);
     params.getParam("z_axis", axes_.z.axis);
@@ -113,6 +99,7 @@ public:
     params.getParam("enable_stick_control_init", enable_control_);
     params.getParam("prefix", prefix);
 
+    // Init subscribers
     joy_subscriber_ = node_handle_.subscribe<sensor_msgs::Joy>("/joy", 1, boost::bind(&Teleop::joyCallback, this, _1));
     velocity_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("cmd_vel_joy", 1);
     land_publisher_ = node_handle_.advertise<std_msgs::Empty>("ardrone/land", 1);
@@ -125,6 +112,7 @@ public:
     stop();
   }
 
+  //! Callback for joy messages. Get the axes value and check if interesting buttons are pressed.
   void joyCallback(const sensor_msgs::JoyConstPtr& joy)
   {
     velocity_.linear.x  = getAxis(joy, axes_.x.axis)   * axes_.x.max;
@@ -157,12 +145,14 @@ public:
     	}
     }
 
+    // Only publish control if control is enabled.
     if(enable_control_)
     {
     	velocity_publisher_.publish(velocity_);
     }
   }
 
+  //! Helper function to get the right axis and enable inversion.
   sensor_msgs::Joy::_axes_type::value_type getAxis(const sensor_msgs::JoyConstPtr& joy, int axis)
   {
     if (axis == 0) return 0;
@@ -172,13 +162,14 @@ public:
     return sign * joy->axes[axis - 1];
   }
 
+  //! Helper function to get the right button
   sensor_msgs::Joy::_buttons_type::value_type getButton(const sensor_msgs::JoyConstPtr& joy, int button)
   {
     if (button <= 0) return 0;
-//    if ((size_t)button > joy->axes.size()) return 0;
     return joy->buttons[button - 1];
   }
 
+  //! Publish hover on stop.
   void stop()
   {
     velocity_ = geometry_msgs::Twist();

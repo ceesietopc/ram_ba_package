@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 	ros::Publisher pub_land; 	// Initialize publisher for land command
 	ros::Publisher pub_reset; 	// Initialize publisher for reset command
 
-	pub_twist = node.advertise<geometry_msgs::Twist>("cmd_vel_key",1); 		// Set pub_twist as the publisher to publish a twist to /cmd_vel
+	pub_twist = node.advertise<geometry_msgs::Twist>("cmd_vel",1); 		// Set pub_twist as the publisher to publish a twist to /cmd_vel
 	pub_takeoff = node.advertise<std_msgs::Empty>("ardrone/takeoff",1); 	// Set pub_takeoff as the publisher to publish an empty message to /ardrone/takeoff
 	pub_land = node.advertise<std_msgs::Empty>("ardrone/land",1); 		// Set pub_land as the publisher to publish an empty message to /ardrone/land
 	pub_reset = node.advertise<std_msgs::Empty>("ardrone/reset",1); 	// Set pub_reset as the publisher to publish an empty message to /ardrone/reset
