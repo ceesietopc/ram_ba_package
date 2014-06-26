@@ -1,30 +1,10 @@
 <package>
   <name>ram</name>
-  <version>0.0.0</version>
-  <description>The ram package</description>
-
-  <!-- One maintainer tag required, multiple allowed, one person per tag --> 
-  <!-- Example:  -->
-  <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="ramflight@todo.todo">ramflight</maintainer>
-
-
-  <!-- One license tag required, multiple allowed, one license per tag -->
-  <!-- Commonly used license strings: -->
-  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <version>1.0.0</version>
+  <description>The ram_ba_package, written by Cees Trouwborst for a bachelor assignment at the Robotics and Mechatronics group at the University of Twente. This package implements a PD controller for setpoint control of a Parrot AR.Drone in indoor scenarios where position information is available.</description>
+  <maintainer email="ceestrouwborst@gmail.com">Cees Trouwborst</maintainer>
   <license>TODO</license>
-
-
-  <!-- Url tags are optional, but mutiple are allowed, one per tag -->
-  <!-- Optional attribute type can be: website, bugtracker, or repository -->
-  <!-- Example: -->
-  <!-- <url type="website">http://ros.org/wiki/beginner_tutorials</url> -->
-
-
-  <!-- Author tags are optional, mutiple are allowed, one per tag -->
-  <!-- Authors do not have to be maintianers, but could be -->
-  <!-- Example: -->
-  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
+  <url type="website">https://github.com/ceesietopc/ram_ba_package</url>
 
 
   <!-- The *_depend tags are used to specify dependencies -->
@@ -45,16 +25,9 @@
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>ardrone_autonomy</run_depend>
+  <run_depend>mocap_optitrack</run_depend>
+  <run_depend>yocs_cmd_vel_mux</run_depend>
   <build_depend>message_generation</build_depend>
   <run_depend>message_runtime</run_depend>
-
-
-  <!-- The export tag contains other, unspecified, tags -->
-  <export>
-    <!-- You can specify that this package is a metapackage here: -->
-    <!-- <metapackage/> -->
-
-    <!-- Other tools can request additional information be placed here -->
-
-  </export>
 </package>

@@ -19,8 +19,6 @@ z = 1.5; % Setpoint z
 % Prepare plot
 figure;
 
-
-
 while true
     pose1.getPosition().setX(-r);
     pose1.getPosition().setY(0);

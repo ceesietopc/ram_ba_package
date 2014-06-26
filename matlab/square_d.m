@@ -45,6 +45,7 @@ while true
         pose2.getPosition().setY(-d);
     end
     if toc() > 4*l
+        % Reset timer  to keep looping
         tic;
     end
     pose1.getPosition().setZ(z);

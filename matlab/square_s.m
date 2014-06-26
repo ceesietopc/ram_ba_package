@@ -16,8 +16,6 @@ z = 1.5; % Setpoint z
 % Prepare plot
 figure;
 
-
-
 while true
     if toc() > 0*l
         pose.getPosition().setX(-d);
@@ -36,7 +34,8 @@ while true
         pose.getPosition().setY(-d);
     end
     if toc() > 4*l
-        tic()
+        % Reset timer  to keep looping
+        tic; 
     end
     pose.getPosition().setZ(z);
     pose.getOrientation().setW(1);
