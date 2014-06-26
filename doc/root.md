@@ -1,8 +1,6 @@
 ram_ba_package
 =======================
 
-[toc]
-
 This is the documentation for the ROS package *ram*, consisting of both technical documentation of the available executables and some tutorials to get started.
 
 > - All code within this project is intended for reuse and therefore documented. If things are unclear, please contact me (ceesietopc).
