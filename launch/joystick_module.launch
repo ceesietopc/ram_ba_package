@@ -1,10 +1,18 @@
 <?xml version="1.0"?>
+<!--
+
+This launch file was intended for use through the interface.
+It starts the following nodes:
+- A fly_from_joystick executable, translating joy messages to cmd_vel_joystick
+
+  -->
 
 <launch>
 	<arg name="prefix" />
   
   <!-- Note that axis IDs are those from the joystick message plus one, to be able to invert axes by specifiying either positive or negative axis numbers.-->
   <!-- Axis 2 from joy message thus has to be set as '3' or '-3'(inverted mode) below-->
+  
   <!-- For Logitech Joystick 
   <node name="fly_from_joystick" pkg="ram" type="fly_from_joystick">
     <param name="x_axis" value="2"/>

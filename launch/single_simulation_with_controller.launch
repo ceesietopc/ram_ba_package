@@ -1,4 +1,9 @@
 <?xml version="1.0"?>
+<!--
+
+This launch file was intended for use stand-alone use together with Gazebo, but is not updated anymore. It can be, however, a nice starting point for people that want to use Gazebo.
+
+  -->
 
 <launch>
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
@@ -32,7 +37,7 @@
 
   <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager"/>
   <node pkg="nodelet" type="nodelet" name="yocs_cmd_vel_mux" args="load yocs_cmd_vel_mux/CmdVelMuxNodelet nodelet_manager">
-    <param name="yaml_cfg_file" value="$(find yocs_cmd_vel_mux)/param/ram.yaml"/>
+    <param name="yaml_cfg_file" value="$(find ram)/launch/ram.yaml"/>
   </node>
   
   <node pkg="mocap_optitrack" 

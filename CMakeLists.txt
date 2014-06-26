@@ -4,6 +4,9 @@ project(ram)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+
+# Make sure message_generation is added, since custom messages are used.
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -51,20 +54,6 @@ add_message_files(
   gains.msg
 )
 
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
-
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
-
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
@@ -97,11 +86,6 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-
-## Declare a cpp library
-# add_library(beginner_tutorials
-#   src/${PROJECT_NAME}/beginner_tutorials.cpp
-# )
 
 ## Declare a cpp executable
 # add_executable(beginner_tutorials_node src/beginner_tutorials_node.cpp)

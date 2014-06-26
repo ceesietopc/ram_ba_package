@@ -1,3 +1,12 @@
+<?xml version="1.0"?>
+<!--
+
+This launch file was intended for use through the interface.
+It starts the following nodes:
+- A mocap_optitrack node, using the auto-generated settings from optitrack_instance.yaml.
+
+  -->
+
 <launch> 
   <node pkg="mocap_optitrack" 
 	type="mocap_node" 
