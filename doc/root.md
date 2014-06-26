@@ -56,7 +56,11 @@ To use the controller with Matlab, connect to the drones and use the controllers
 
 Other quadcopters
 --------------------
-This package is tested with the ardrone_autonomy driver to gain control over a Parrot AR.Drone. The output of the controller however is a normalized Twist message on the /cmd_vel topic. All robots using a similar interface should be able to use this package. Of course, this could require retuning the controller. 
+This package is tested with the ardrone_autonomy driver to gain control over a Parrot AR.Drone. The output of the controller however is a normalized Twist message on the /cmd_vel topic. All robots using a similar interface should be able to use this package. Of course, this could require retuning the controller. There are two things however, one should be careful with:
+
+1. The controller interface starts sending commands as soon as you start the interface. In the case of the Parrot AR.Drone, these commands will just be neglected. If this is not the case for your platform, the code should be changed.
+2. The references in the Twist messages are attitude references for linear x and y, and a speed reference for linear z (as described in the ardrone_autonomy documentation). So, for other quadcopters that need a certain throttle to stay levelled, the controller in Z-direction will not work.
+
 > To change the default controller tuning, make sure to change both the launch file *controller_module.launch* and the Glade file containing the default position of the sliders.
 
 Other state feedback systems
