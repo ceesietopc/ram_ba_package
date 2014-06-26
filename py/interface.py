@@ -1,33 +1,42 @@
 #!/usr/bin/python
 
+"""
+This Python executable is part of the ram ROS package. Its function is to automatically connect to multiple drones. The application is designed to work under Ubuntu Linux (and just that).
+For documentation, check the Github repository. http://github.com/ceesietopc/ram_ba_package
+"""
+
+# System imports
 import sys
 import json
 import yaml
-import dbus
+import dbus                             # communicate with Network manager over DBUS
 import time
-import telnetlib
-from gi.repository import Gtk, GObject
-
-import rospy
-import rospkg
-
+import telnetlib                        # Telnet to drones for change of configuration
+from gi.repository import Gtk, GObject  # Glade interface
 import threading
 import subprocess
 import multiprocessing
-
 import os
 import xmlrpclib
 import socket
 
-SSID = "RAM_drones"
-SSID_SLUG = "ardrone"
-wlan_interface = "wlan0"
+# ROS related imports
+import rospy
+import rospkg
+
+# Configuration parameters. Change before use!
+SSID = "RAM_drones"                     # SSID of the dedicated network for the drones
+SSID_SLUG = "ardrone"                   # Slug to scan SSIDs for, for drone identification
+wlan_interface = "wlan0"                # Used interface for scanning for drones
+
+# Initial values, empty lists, etc.
 device_path = None
 connection_path = None
 settings_path = None
 controllerProcesses = []
 connectors = 0
 
+# Implementation of multithreading with callback on exit. Important to maintain an up to date representation of the running controllers.
 class controllerThread(threading.Thread):
     def __init__(self, ssid, onExit, popenArgs):
         self.stdout = None
@@ -45,18 +54,23 @@ class controllerThread(threading.Thread):
         self.onExit(self.ssid)
 
 def importDrones(buttonPressed):
+    # If import button is pressed, read drones and write them to list
+
     # Start of with getting a list of drone objects from a JSON file
     json_data = open(package_location+"/py/drones.json").read()
     data = json.loads(json_data)
 
-    # IP Address should can change everytime. SSID, Prefix and trackable_id should remain the same
+    # IP Address can change everytime. SSID, Prefix and trackable_id should remain the same. Just read those values. The other columns in the list are empty
     store = builder.get_object("liststore1")
     store.clear()
     for drone in data:
         store.append([drone['ssid'], "",drone['prefix'], drone['trackable_id'], "", ""])
+    # Make sure to update the optiTrack configuration when new drones are added
     optiTrackUpdate()
 
 def exportDrones(buttonPressed):
+    # If export drones is pressed, write the drones to a JSON list
+    
     drones = [];
     store = builder.get_object("liststore1")
     if len(store) < 1:
@@ -68,6 +82,7 @@ def exportDrones(buttonPressed):
             json.dump(drones,outfile)
 
 def getNextIP():
+    # Returns the next available IP list to assign to a drone. Loops through list and checks for largest value, than adds 1.
     ip = 9;
     inuse = True
     store = builder.get_object("liststore1")
@@ -82,17 +97,23 @@ def getNextIP():
     return ip
 
 def assignIP(buttonPressed):
+    # Loop through all available drones and change their configuration through telnet.
+
     # Loop through store
     store = builder.get_object("liststore1")
-    # TODO: Replace this value by the highest IP in the list + 1. Or even better: smallest available one.
     for drone in store:
+        # If no IP yet AND ad-hoc available
         if (drone[1] == "") and (drone[4] == "Yes"):
+            # Get the next available IP
             ip = str(getNextIP())
+
+            # Connect to the the drone
             print "Connecting!"
             droneConnect(drone[0])
+
+            # Reconfigure over Telnet
             tn = telnetlib.Telnet("192.168.1.1")
             tn.read_some()
-
             tn.write("rm /data/wifi.sh\n")
             tn.read_some()
             tn.write("echo \"killall udhcpd\" > /data/wifi.sh\n")
@@ -107,13 +128,15 @@ def assignIP(buttonPressed):
             tn.read_some()
             tn.write("sh /data/wifi.sh\n")
             # IMPORTANT At this point, we lose connectivity
-            #tn.write("exit\n")
 
             disconnect()
+
+            # Update information in store 
             drone[1] = "192.168.1."+ip
             drone[4] = "No"
 
 def findNetworks():
+    # Scan for drones.
     drones = []
     global device_path
 
@@ -144,12 +167,13 @@ def findNetworks():
         # string.
         str_ap_ssid = "".join(chr(i) for i in ap_ssid)
         print ap_path, ": SSID =", str_ap_ssid
-        # Make a foreach something here
+        # If the SSID matches, store drone
         if SSID_SLUG in str_ap_ssid:
             drones.append({'ap_path': ap_path, 'ssid': str_ap_ssid})
     return drones
 
 def droneConnect(ssid):
+    # Connect to a drone, based on SSID
     global device_path, connection_path, settings_path
 
     # Connect to the device's Wireless interface and obtain list of access
@@ -237,12 +261,17 @@ def disconnect():
     settings.Delete()
 
 def scanDrones(buttonPressed):
-    # Find new drones. For each drone found, check if the thing is in the list. If yes, make it bold faced
+    # Find new drones. For each drone found, check if the thing is in the list.
+    
+    # Function that actually scans for the drones
     drones = findNetworks()
+
+    # No drones returned, error.
     if len(drones) < 1:
         warning(window,"Make sure the batteries of the AR.Drones are connected.","No drones found!")
         return None
 
+    # Add drones we do not know yet to the store.
     store = builder.get_object("liststore1")
     for newDrone in drones:
         # loop through the ones in the storage and check if we have equal ssid
@@ -252,25 +281,23 @@ def scanDrones(buttonPressed):
                 # SSID is equal. Do not add to list. Add that we found it though!
                 found = True
                 drone[4] = "Yes"
-            #else:
-                # drone[4] = "No"
-                # TODO: Above line resets all status to No, except last. Not the idea
         if found == True:
             continue
-        # New drone found. Add  to the list
+        # New drone found. Ask information and add  to the list
         dialog = askDialog(window, "Please enter a prefix and trackable ID for the new drone.",newDrone['ssid']+" identification")
         if dialog != None:
             store.append([newDrone['ssid'], "", dialog[0], int(dialog[1]), "Yes", ""])
 
+    # List changed, ipdate OptiTrack!
     optiTrackUpdate()
 
 def warning(parent, message, title=''):
+    # Helper function for posing warnings
     dialogWindow = Gtk.MessageDialog(parent,
                       Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                       Gtk.MessageType.QUESTION,
                       Gtk.ButtonsType.OK,
                       message)
-
     dialogWindow.set_title(title)
     dialogWindow.show_all()
     response = dialogWindow.run()
@@ -278,6 +305,7 @@ def warning(parent, message, title=''):
     return response
 
 def confirm(parent, message, title=''):
+    # Helper function for posing confirmation window
     dialogWindow = Gtk.MessageDialog(parent,
                       Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                       Gtk.MessageType.QUESTION,
@@ -291,6 +319,7 @@ def confirm(parent, message, title=''):
     return response
 
 def askIp(parent, message, title=''):
+    # Helper function to ask for an IP
     dialogWindow = Gtk.MessageDialog(parent,
                           Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                           Gtk.MessageType.QUESTION,
@@ -319,6 +348,7 @@ def askIp(parent, message, title=''):
 
 
 def askDialog(parent, message, title=''):
+    # Helper function to ask for a prefix and trackable ID
     dialogWindow = Gtk.MessageDialog(parent,
                           Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                           Gtk.MessageType.QUESTION,
@@ -356,7 +386,7 @@ def askDialog(parent, message, title=''):
 
 def launchController(treeview, row, column):
     # This function should only run when connected to the dedicated network. This can be done through wifi and cable though, so do not do it automatically.
-    # Check for active drones, otherwise give warning
+    # Check for active drones, otherwise give warning. This function is activated by double clicking a drone.
     global controllerProcesses
 
     store = builder.get_object("liststore1")
@@ -364,26 +394,29 @@ def launchController(treeview, row, column):
         warning(window, "Please assign IP's first.","No IP address assigned to this drone.")
         return None
 
+    # warn user that he/she should be connected to the subnet the drones use
     if len(controllerProcesses) < 1:
-    # It can be that the ssid is already active, give no warning then
         response = confirm(window,"Please make sure you are connected to the dedicated network before running a controller.")
         if response != Gtk.ResponseType.OK:
             return None
 
+    # It can be that the ssid is already active, give no warning then
     if store[row][5] == "Yes":
         warning(window, "Controller already active.","A controller was already initiated for this drone.")
         return None
     
+    # Update list with information
     store[row][5] = "Yes"
-    #thread = popenAndCall(store[row][0], garbageCollection, ["rosrun", "ram", "controller.py", store[row][2], store[row][1]])
+
+    # Start the new thread
     th = controllerThread(store[row][0], garbageCollection, ["rosrun", "ram", "controller.py", store[row][2], store[row][1], str(int(connectors))])
     th.start()
+
+    # Do bookkeeping
     controllerProcesses.append(store[row][0])
-    #subprocess.Popen(["rosrun", "ram", "controller.py", store[row][2], store[row][1]])
-        
-    # Launch actual controller
 
 def garbageCollection(ssid):
+    # This function is called when a controller process is ended. At that point, the list should reflect that.
     global controllerProcesses
     # Get list of processes and remove this one
     controllerProcesses.remove(ssid) 
@@ -395,11 +428,15 @@ def garbageCollection(ssid):
 
 
 def quitCallback(widget, event):
+    # This function is called when the window close button is called.
     global controllerProcesses, optiThread
+
+    # We should not close the interface when there are active controllers
     if len(controllerProcesses) > 0:
         warning(window, "Controllers active.","There are active controller processes. Please close them first.")
         return True
 
+    # Close the optitrack thread
     try:
         optiThread.poll()
         if(optiThread.returncode == None):
@@ -407,6 +444,7 @@ def quitCallback(widget, event):
     except (NameError, AttributeError):
         pass
 
+    # Close the joystick thread
     try:
         joyThread.poll()
         if(joyThread.returncode == None):
@@ -414,15 +452,18 @@ def quitCallback(widget, event):
     except (NameError, AttributeError):
         pass
 
+    # Quit the application and return to terminal
     Gtk.main_quit(widget, event)
 
 def btnClear(buttonPressed):
+    # Clear the list. Drones that have active controllers are not cleared.
     store = builder.get_object("liststore1")
     for (i, drone) in enumerate(store):
         if(drone[5] != "Yes"):
             store.remove(drone.iter)
 
 def rightClick(treeview, event):
+    # When a right click is performed, give the user the ability to change the IP manually
     if event.button == 3: # right click
         store = builder.get_object("liststore1")
         path, col, x, y = treeview.get_path_at_pos(int(event.x), int(event.y))
@@ -430,9 +471,12 @@ def rightClick(treeview, event):
         if ip != None:
             treeiter = store.get_iter(path)
             store.set_value(treeiter, 1, ip)
-            store.set_value(treeiter, 4, "No")
+            store.set_value(treeiter, 4, "No")  # After setting the IP, it is assumed the thing is not Ad-hoc availabe
 
 def optiTrackUpdate():
+    # Function to update the optitrack configuration
+    
+    # Close current thread
     global optiThread, connectors
     try:
         optiThread.poll()
@@ -441,13 +485,13 @@ def optiTrackUpdate():
     except (NameError, AttributeError):
         pass
 
-    # Write yaml
+    # Get location to store the config
     rospack = rospkg.RosPack()
     package_location = rospack.get_path("ram")
     store = builder.get_object("liststore1")
     
+    # Write output by hand. Keep track of the highest trackable ID, so mass connectors can be added afterwards.
     maxvalue = 0
-
     with open(package_location+'/launch/optitrack_instance.yaml', 'w') as outfile:
         outfile.write("rigid_bodies:\n")
         for drone in store:
@@ -464,24 +508,26 @@ def optiTrackUpdate():
             outfile.write("    '"+str(maxvalue + connector)+"':\n")
             outfile.write("        pose: massConnector"+str(connector)+"/unfiltered_pose\n")
 
-    # run optitrack
-    
+    # Start optitrack again
     optiThread = subprocess.Popen(["roslaunch", "ram", "optitrack_instance.launch"])
 
 def adjMassConnectors(adj):
+    # This function is used when the amount of mass connectors is changed. It initiates an update of the OptiTrack configuration
     global connectors
     connectors = adj.get_value()
     optiTrackUpdate()
 
 def btnSimControl(btn):
+    # If the "batch edit setpoints" button is clicked, a separate executable is opened, with the names of the drones as arguments.
     args = ["rosrun", "ram", "simControl.py"];
     store = builder.get_object("liststore1")
     for drone in store:
         args.append(drone[2])
     p = subprocess.Popen(args, shell=False)
 
+# Main function
 if __name__ == "__main__":
-
+    # Check for the presence of a roscore by checking the ROS_MASTER_URI 
     m = xmlrpclib.ServerProxy(os.environ['ROS_MASTER_URI'])
     try:
         code, msg, val = m.getSystemState('interface_instance')
@@ -489,17 +535,20 @@ if __name__ == "__main__":
         print "Please start roscore first."
         sys.exit()
 
+    # We update the interface directly through the python code, use threads
     GObject.threads_init()
 
-    # Enable joystick
+    # Enable joystick by running joy node. Every controller has a separate interpreter
     joyThread = subprocess.Popen(["rosrun", "joy", "joy_node"])
 
+    # Get the location of the glade file and use it for the interface
     rospack = rospkg.RosPack()
     package_location = rospack.get_path("ram")
     gladefile = package_location+"/py/interface.glade"
     builder = Gtk.Builder()
     builder.add_from_file(gladefile)
 
+    # Connect all signals from the Glade file
     handlers = {
         "onDeleteWindow": quitCallback,
         "btnImport": importDrones,
@@ -514,8 +563,9 @@ if __name__ == "__main__":
     }
     builder.connect_signals(handlers)
 
+    # Initiate the system bus 
     bus = dbus.SystemBus()
-    # Obtain handles to manager objects.
+    # Obtain handles to network manager objects.
     manager_bus_object = bus.get_object("org.freedesktop.NetworkManager",
                                         "/org/freedesktop/NetworkManager")
     manager = dbus.Interface(manager_bus_object,
@@ -524,19 +574,16 @@ if __name__ == "__main__":
                                    "org.freedesktop.DBus.Properties")
 
     
-    # Get path to the 'wlan0' device. If you're uncertain whether your WiFi
-    # device is wlan0 or something else, you may utilize manager.GetDevices()
-    # method to obtain a list of all devices, and then iterate over these
-    # devices to check if DeviceType property equals NM_DEVICE_TYPE_WIFI (2).
+    # Get path to the 'wlan0' device. 
     device_path = manager.GetDeviceByIpIface(wlan_interface)
     print "wlan path: ", device_path
 
-    # Connect to the device's Wireless interface and obtain list of access
-    # points.
+    # Connect to the device's Wireless interface and obtain list of AP's
     device = dbus.Interface(bus.get_object("org.freedesktop.NetworkManager",
                                            device_path),
                             "org.freedesktop.NetworkManager.Device.Wireless")
 
+    # Show window and start main loop
     window = builder.get_object("window1")
     window.show_all()
     Gtk.main()

@@ -7,7 +7,7 @@
 
 subscribers:
   - name:        "Joystick"
-    topic:       "cmd_vel_joystick"
+    topic:       "cmd_vel_joy"
     timeout:     0.1
     priority:    7
   - name:        "Controller"

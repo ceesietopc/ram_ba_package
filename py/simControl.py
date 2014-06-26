@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 
+"""
+This Python executable is part of the ram ROS package. Its function is to update the setpoints of multiple drones at the same time. The application is designed to work under Ubuntu Linux (and just that).
+For documentation, check the Github repository. http://github.com/ceesietopc/ram_ba_package
+"""
+
+# System imports
 import sys
 import time
-from gi.repository import Gtk, cairo, Pango, PangoCairo, GObject, Gdk
+from gi.repository import Gtk, cairo, Pango, PangoCairo, GObject, Gdk   # We use glade for UI
 import threading
+import os
+import xmlrpclib
+import socket
+import subprocess
 
+# Ros related imports
 import rospy
 import std_msgs.msg
 import geometry_msgs.msg
@@ -13,40 +24,39 @@ import tf.transformations
 import rospkg
 from ram.msg import nonlinearity
 
-import os
-import xmlrpclib
-import socket
-
-import subprocess
-
+# RosConnector class to handle all communication with ROS
 class RosConnector:
     def __init__(self, prefixes):
+        # Set up dictionaries to store the current setpoint, the setpoint subscriber and the setpoint publisher per quadcopter.
         self.setpointDict = {}
         self.setpointSubDict = {}
         self.setpointPubDict = {}
         
+        # Prefixes are directly deducted from executable arguments. 
         del prefixes[0] # First arg is the filename
         if len(prefixes) > 0:
             for prefix in prefixes:
                 self.initPrefix(prefix)
 
     def initPrefix(self, prefix):
+        # Initiate the handling of a new prefix. So: current setpoint is zero valued, initiate subscriber and publisher.
         self.setpointDict[prefix] = geometry_msgs.msg.Pose()
         self.setpointSubDict[prefix] = rospy.Subscriber("/"+prefix+"/setpoint", geometry_msgs.msg.Pose, self.setpointCB, callback_args=prefix)
         self.setpointPubDict[prefix] = rospy.Publisher("/"+prefix+"/setpoint", geometry_msgs.msg.Pose)
 
     def setpointCB(self, msg, prefix):
+        # One callback is used for all subscribers. This callback just stores the pose received from the subscriber.
         self.setpointDict[prefix] = msg
    
     def clean(self):
         pass
 
     def publish(self):
+        # Publish the new setpoints
         for (i, prefix) in enumerate(self.setpointPubDict):
-            print "pub!"
-            print self.setpointDict[prefix]
             self.setpointPubDict[prefix].publish(self.setpointDict[prefix])
 
+    # Button handler per button. This can implemented in a beautiful way, since this is dirty. It works though.
     def btnXL(self, btn):
         for setpoint in self.setpointDict:
             self.setpointDict[setpoint].position.x += 0.5
@@ -108,11 +118,14 @@ class RosConnector:
         self.publish()
 
 def btnClose(widget, event):
+    # If the close button is pressed, clean up.
     ros.clean()
+    # Exit application, go to terminal
     Gtk.main_quit(widget, event)
 
+# Main function
 if __name__ == "__main__":
-
+    # Check if roscore is running
     m = xmlrpclib.ServerProxy(os.environ['ROS_MASTER_URI'])
     try:
         code, msg, val = m.getSystemState('controller_instance')
@@ -120,23 +133,24 @@ if __name__ == "__main__":
         print "Please start roscore first."
         sys.exit()
 
-    len(sys.argv)
-
+    # Init node
     rospy.init_node('bulk_setpoint_change')
 
-    # Init ros
+    # Init ros communication, just pass on info from arguments
     ros = RosConnector(sys.argv)
 
+    # Start threads
     GObject.threads_init()
     Gdk.threads_init()
 
+    # Get location of Glade file and use for UI
     rospack = rospkg.RosPack()
     package_location = rospack.get_path("ram")
     gladefile = package_location+"/py/bulk_setpoint_change.glade"
     builder = Gtk.Builder()
     builder.add_from_file(gladefile)
 
-
+    # Connect signals
     handlers = {
         "quit": btnClose,
         "btnXL": ros.btnXL,
@@ -154,10 +168,12 @@ if __name__ == "__main__":
     }
     builder.connect_signals(handlers)
 
+    # Get window and open it
     window = builder.get_object("window1")
     window.set_title("Bulk setpoint edit")
     window.show_all()
 
+    # Start main loop
     Gdk.threads_enter()
     Gtk.main()
     Gdk.threads_leave()
