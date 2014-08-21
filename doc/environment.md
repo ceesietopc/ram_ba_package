@@ -7,9 +7,9 @@ Computer
 All code is developed and tested under Ubuntu 12.04 running ROS Hydro. The computer should have a Wireless Interface to connect to the drones. In the optimal case, this wireless connection is only used for the configuration of the drones. After configuration the drones connect to a wireless accesspoint, to which the computer can be connected through a cable. 
 > The connection from the computer to the accesspoint can also be wireless. In this way you introduce an additional bottleneck in your system however, since all data (including video data) goes through this connection. **NB** Adding drones while other drones are flying is impossible if you have just a wireless connection to the accesspoint. You will lose connection to the flying drones.
 
-Wireless Action Point
+Wireless Access Point
 ------------------
-A wireless action point should be available for the use in this setup. The connector should be configured correctly to use this action point (see the [connector](connector.md) page). The access point should supply an unprotected wireless network, preferably making use of the Wifi N-standard.
+A wireless access point should be available for the use in this setup. The connector should be configured correctly to use this action point (see the [connector](connector.md) page). The access point should supply an unprotected wireless network, preferably making use of the Wifi N-standard. The access point should use the 192.168.2.* range, since fixed IPs are given in that range. DHCP should start sufficiently far away from 192.168.2.9, to prevent conflicts.
 
 OptiTrack
 ----------

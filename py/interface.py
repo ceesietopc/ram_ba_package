@@ -90,7 +90,7 @@ def getNextIP():
     while inuse:
         inuse = False
         for drone in store:
-            if drone[1] == "192.168.1."+str(ip):
+            if drone[1] == "192.168.2."+str(ip):
                 inuse = True
                 ip += 1
                 continue
