@@ -27,7 +27,7 @@ import rospkg
 # Configuration parameters. Change before use!
 SSID = "RAM_drones"                     # SSID of the dedicated network for the drones
 SSID_SLUG = "ardrone"                   # Slug to scan SSIDs for, for drone identification
-wlan_interface = "wlan0"                # Used interface for scanning for drones
+wlan_interface = "wlan6"                # Used interface for scanning for drones
 
 # Initial values, empty lists, etc.
 device_path = None
@@ -122,7 +122,7 @@ def assignIP(buttonPressed):
             tn.read_some()
             tn.write("echo \"iwconfig ath0 mode managed essid "+SSID+"\" >> /data/wifi.sh\n")
             tn.read_some()
-            tn.write("echo \"ifconfig ath0 192.168.1."+ip+" netmask 255.255.255.0 up\" >> /data/wifi.sh\n")
+            tn.write("echo \"ifconfig ath0 192.168.2."+ip+" netmask 255.255.255.0 up\" >> /data/wifi.sh\n")
             tn.read_some()
             tn.write("chmod +x /data/wifi.sh\n");
             tn.read_some()
@@ -132,7 +132,7 @@ def assignIP(buttonPressed):
             disconnect()
 
             # Update information in store 
-            drone[1] = "192.168.1."+ip
+            drone[1] = "192.168.2."+ip
             drone[4] = "No"
 
 def findNetworks():
