@@ -112,7 +112,7 @@ add_executable(battery_protector src/battery_protector.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(beginner_tutorials_node beginner_tutorials_generate_messages_cpp)
+add_dependencies(controller  ram_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(beginner_tutorials_node
