@@ -73,7 +73,7 @@ This package uses multiple other non-standard ROS packages. They are shortly men
 
  - [ardrone_autonomy][3] ROS driver for the Parrot AR.Drone. Since multiple quadcopter are to be used, [a version modified by kbogert][4] is used, following [this discussion][5].
  - [mocap_optitrack][6] package to listen for and interpret messages from the OptiTrack system.
- - [yocs_cmd_vel_mux][7] package to switch automatically between multiple *cmd_vel* topics.
+ - [yocs_cmd_vel_mux][7] package to switch automatically between multiple *cmd_vel* topics. When building from source, all other packages in the repository can be deleted, since they are not used.
 
   [1]: http://www.naturalpoint.com/optitrack/
   [2]: http://www.mathworks.nl/hardware-support/robot-operating-system.html
